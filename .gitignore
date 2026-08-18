@@ -1,0 +1,48 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build
+build/
+cmake-build-*/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+.eggs/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Archives (large generated files)
+archives/*/*.pdf
+!archives/.gitkeep
+
+# Environment
+.env
+.env.local
+
+# Temporary
+*.tmp
+*.temp
+*.log
+.cache/

@@ -1,5 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
+chcp 65001 >nul 2>&1
 
 :: ============================================================
 ::  Gavin AI Toolkit - Deploy Script (Windows)
@@ -10,18 +11,17 @@ setlocal enabledelayedexpansion
 ::
 ::  Platform: codebuddy | claude
 ::  Scope:   user | project
-::
-::  Examples:
-::    deploy.bat codebuddy user
-::    deploy.bat codebuddy project D:\my-project
-::    deploy.bat claude user
-::    deploy.bat claude project D:\my-project
 :: ============================================================
 
 set "SOURCE_DIR=%~dp0skills\slam-code-reader"
 
+:: --- Parse arguments safely (handles spaces and unicode paths) ---
+set "PLATFORM=%~1"
+set "SCOPE=%~2"
+set "PROJECT_PATH=%~3"
+
 :: --- Help ---
-if "%1"=="" (
+if "%PLATFORM%"=="" (
     echo ===========================================
     echo   Gavin AI Toolkit - Deploy Tool (Windows)
     echo ===========================================
@@ -39,16 +39,12 @@ if "%1"=="" (
     echo.
     echo   Examples:
     echo     deploy.bat codebuddy user
-    echo     deploy.bat codebuddy project D:\my-slam-project
+    echo     deploy.bat codebuddy project D:\my-project
     echo     deploy.bat claude user
-    echo     deploy.bat claude project D:\my-slam-project
+    echo     deploy.bat claude project D:\my-project
     echo ===========================================
     exit /b 0
 )
-
-set "PLATFORM=%1"
-set "SCOPE=%2"
-set "PROJECT_PATH=%3"
 
 :: --- Validate Platform ---
 if /i not "%PLATFORM%"=="codebuddy" if /i not "%PLATFORM%"=="claude" (
@@ -146,7 +142,7 @@ if exist "%TARGET_DIR%" (
 
 :: Create parent directory
 set "PARENT_DIR=%TARGET_DIR%\.."
-if not exist "%PARENT_DIR%" mkdir "%PARENT_DIR%"
+if not exist "%PARENT_DIR%" mkdir "%PARENT_DIR"
 
 :: Try Junction first (preferred on Windows)
 echo [LINK] Creating Junction link...

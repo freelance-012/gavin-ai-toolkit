@@ -1,19 +1,13 @@
 #!/bin/bash
 # ============================================================
-#  Gavin AI Toolkit - Cross-Platform Deploy Script
-#  Supports: Linux, macOS
-#  Targets: CodeBuddy, Claude Code
+#  Gavin AI Toolkit - Deploy Script (Linux / macOS)
+#  Supports: CodeBuddy, Claude Code
 #
 #  Usage:
 #    ./deploy.sh <platform> <scope> [project_path]
 #
-#  Platform:
-#    codebuddy   → Deploy to CodeBuddy skills directory
-#    claude      → Deploy to Claude Code commands directory
-#
-#  Scope:
-#    user        → User-level (global)
-#    project     → Project-level (requires project_path)
+#  Platform: codebuddy | claude
+#  Scope:   user | project
 #
 #  Examples:
 #    ./deploy.sh codebuddy user
@@ -24,24 +18,42 @@
 
 set -euo pipefail
 
-# ── Colors ──────────────────────────────────────────────
+# --- Colors ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# ── Script Location ─────────────────────────────────────
+# --- Script Location ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}/skills/slam-code-reader"
 
-# ── Help ────────────────────────────────────────────────
+# --- Helper Functions ---
+die() {
+    echo -e "${RED}[ERROR] $1${NC}" >&2
+    exit 1
+}
+
+warn() {
+    echo -e "${YELLOW}[WARN] $1${NC}"
+}
+
+ok() {
+    echo -e "${GREEN}[OK] $1${NC}"
+}
+
+info() {
+    echo -e "${BLUE}[INFO] $1${NC}"
+}
+
+# --- Help ---
 show_help() {
     echo ""
-    echo -e "${BLUE}═════════════════════════════════════════${NC}"
+    echo -e "${BLUE}==========================================${NC}"
     echo -e "  Gavin AI Toolkit - Deployment Tool"
     echo -e "  (Linux / macOS)"
-    echo -e "${BLUE}═════════════════════════════════════════${NC}"
+    echo -e "${BLUE}==========================================${NC}"
     echo ""
     echo "  Usage:"
     echo "    ./deploy.sh <platform> <scope> [project_path]"
@@ -60,28 +72,10 @@ show_help() {
     echo "    ./deploy.sh claude user"
     echo "    ./deploy.sh claude project /home/user/my-project"
     echo ""
-    echo -e "${BLUE}═════════════════════════════════════════${NC}"
+    echo -e "${BLUE}==========================================${NC}"
 }
 
-# ── Error Handler ────────────────────────────────────────
-die() {
-    echo -e "${RED}❌ Error: $1${NC}" >&2
-    exit 1
-}
-
-warn() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
-}
-
-ok() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-info() {
-    echo -e "${BLUE}📌 $1${NC}"
-}
-
-# ── Parse Arguments ─────────────────────────────────────
+# --- Parse Arguments ---
 if [[ $# -lt 2 ]]; then
     show_help
     exit 0
@@ -91,7 +85,7 @@ PLATFORM="$1"
 SCOPE="$2"
 PROJECT_PATH="${3:-}"
 
-# ── Determine Target Directory ──────────────────────────
+# --- Determine Target Directory ---
 detect_target_dir() {
     case "$PLATFORM" in
         codebuddy)
@@ -117,7 +111,6 @@ detect_target_dir() {
             case "$SCOPE" in
                 user)
                     TARGET_DIR="$HOME/.claude/commands"
-                    # Claude uses flat .md files, not a directory
                     CLAUDE_MODE="flat"
                     ;;
                 project)
@@ -141,7 +134,7 @@ detect_target_dir() {
     esac
 }
 
-# ── Validate Source ─────────────────────────────────────
+# --- Validate Source ---
 validate_source() {
     if [[ ! -f "$SOURCE_DIR/SKILL.md" ]]; then
         die "Source directory missing SKILL.md: $SOURCE_DIR"
@@ -149,7 +142,7 @@ validate_source() {
     info "Source: $SOURCE_DIR"
 }
 
-# ── Deploy for CodeBuddy (symlink or copy) ─────────────
+# --- Deploy for CodeBuddy (symlink or copy) ---
 deploy_codebuddy() {
     echo ""
     info "Deploy mode: CodeBuddy ($SCOPE)"
@@ -164,7 +157,8 @@ deploy_codebuddy() {
     # Create parent directory
     mkdir -p "$(dirname "$TARGET_DIR")"
 
-    # Try symbolic link first (preferred)
+    # Try symbolic link first (preferred on Unix)
+    echo "[LINK] Creating symbolic link..."
     if ln -s "$SOURCE_DIR" "$TARGET_DIR" 2>/dev/null; then
         ok "Deployed successfully! (Symlink mode)"
         echo ""
@@ -180,7 +174,7 @@ deploy_codebuddy() {
     fi
 }
 
-# ── Deploy for Claude (flat .md files) ──────────────────
+# --- Deploy for Claude (flat .md files) ---
 deploy_claude() {
     echo ""
     info "Deploy mode: Claude Code ($SCOPE)"
@@ -189,22 +183,18 @@ deploy_claude() {
     # Create target directory
     mkdir -p "$TARGET_DIR"
 
-    # Claude uses individual .md command files
-    # We deploy the main SKILL.md as a slash command + phase files as sub-commands
-
-    # Main command: slam-analyze (or slam-read)
+    # Main command
     MAIN_CMD="$TARGET_DIR/slam-code-reader.md"
     cp "$SOURCE_DIR/SKILL.md" "$MAIN_CMD"
-    ok "Installed: slam-code-reader (main command)"
+    ok "Installed: slam-code-reader.md (main command)"
 
-    # Phase sub-commands (optional, for granular use)
-    PHASES_DIR="$TARGET_DIR"
+    # Phase sub-commands
     for phase_file in "$SOURCE_DIR"/phases/*.md; do
         if [[ -f "$phase_file" ]]; then
             phase_name=$(basename "$phase_file" .md)
             cmd_name="slam-${phase_name}"
-            cp "$phase_file" "$PHASES_DIR/${cmd_name}.md"
-            ok "Installed: $cmd_name"
+            cp "$phase_file" "$TARGET_DIR/${cmd_name}.md"
+            ok "Installed: ${cmd_name}.md"
         fi
     done
 
@@ -216,12 +206,12 @@ deploy_claude() {
     echo "   ... (etc)"
 }
 
-# ── Main ────────────────────────────────────────────────
+# --- Main ---
 main() {
     echo ""
-    echo -e "${BLUE}═════════════════════════════════════════${NC}"
+    echo -e "${BLUE}==========================================${NC}"
     echo -e "  Gavin AI Toolkit - Deploy Tool"
-    echo -e "${BLUE}═════════════════════════════════════════${NC}"
+    echo -e "${BLUE}==========================================${NC}"
 
     detect_target_dir
     validate_source
@@ -236,12 +226,12 @@ main() {
     esac
 
     echo ""
-    echo -e "${GREEN}═════════════════════════════════════════${NC}"
+    echo -e "${GREEN}==========================================${NC}"
     echo ""
     echo "  Next step:"
     case "$PLATFORM" in
         codebuddy)
-            echo '    In CodeBuddy, type: "分析 D:/your-slam-project"'
+            echo '    In CodeBuddy, type: "analyze D:/your-slam-project"'
             ;;
         claude)
             echo '    In Claude Code, type: /slam-code-reader D:/your-slam-project'

@@ -7,8 +7,29 @@
 # 01_拓扑结构分析
 
 > **仓库**: {仓库名}
+> **代码版本**: {git commit short hash} `{DIRTY}` (如有未提交修改则标注)
+> **分支**: {branch name}
 > **生成日期**: {YYYY-MM-DD HH:MM}
 > **分析者**: Gavin + AI
+
+---
+
+## 0. 代码版本信息 ⭐
+
+| 属性 | 值 |
+|------|-----|
+| Commit Hash | `{完整 hash}` |
+| Short Hash | `{短 hash}`，如 `a1b2c3d` |
+| Tag | `{最近的 tag}` 或 `无 tag` |
+| Commit Message | `{最近一次 commit 的 message}` |
+| Author | `{作者}` |
+| Date | `{commit 日期}` |
+| Branch | `{当前分支}` |
+| Remote | `{远程仓库 URL}` 或 `无远程` |
+| 工作区状态 | `CLEAN` / **`DIRTY`** (有未提交修改) |
+
+> ⚠️ 如果工作区状态为 DIRTY，说明分析时的代码与最近一次 commit 不完全一致。
+> 建议先提交或记录当前差异 (`git diff > analysis-diff.patch`)，以保证可复现性。
 
 ---
 

@@ -7,6 +7,7 @@
 # 00_资料清单
 
 > **仓库**: {仓库名}
+> **代码版本**: {git commit short hash} `{DIRTY}`
 > **生成日期**: {YYYY-MM-DD HH:MM}
 > **分析者**: Gavin + AI
 

@@ -30,6 +30,36 @@
 
 ## 执行步骤
 
+### Step 0: 记录代码版本 ⭐
+
+**在执行任何分析之前，首先记录目标仓库的版本信息。**
+
+```bash
+cd {repo_path}
+
+# 检查是否为 Git 仓库
+git rev-parse --is-inside-work-tree 2>/dev/null
+if [ $? -eq 0 ]; then
+    # 是 Git 仓库 → 记录完整版本信息
+    git rev-parse HEAD                    # 当前 commit hash (完整)
+    git rev-parse --short HEAD            # 当前 commit hash (短)
+    git describe --tags --always          # 最近的 tag (如果有)
+    git log -1 --format="%H|%s|%ai|%an"   # 完整 commit 信息: hash|message|date|author
+    git status --short                    # 工作区是否有未提交修改
+    git branch --show-current             # 当前分支名
+    git remote -v                         # 远程仓库地址
+else
+    # 非 Git 仓库 → 记录目录状态
+    echo "NOT_A_GIT_REPO"
+fi
+```
+
+**记录规则**：
+- 如果是 Git 仓库 → **必须**记录 commit hash（短格式即可，如 `a1b2c3d`）
+- 如果工作区有未提交修改（`git status --short` 非空）→ 必须标注 **`DIRTY`**
+- 将版本信息写入报告头部（见模板）
+- **目的**：确保分析结果可复现。后续如果代码有更新，通过 commit hash 可以精确回溯到分析时的版本
+
 ### Step 1: 扫描源文件分布
 
 使用 Glob 扫描以下类型的文件：

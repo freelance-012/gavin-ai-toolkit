@@ -1,0 +1,42 @@
+# ============================================================
+#  换行符规范 — 跨平台协作防 CRLF 污染
+#  .sh/.py 等脚本强制 LF，.bat/.cmd 等 Windows 文件强制 CRLF
+# ============================================================
+
+# --- Shell / Python / 脚本类 → LF ---
+*.sh     text eol=lf
+*.py     text eol=lf
+*.pl     text eol=lf
+*.rb     text eol=lf
+
+# --- Windows 批处理 → CRLF ---
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+*.ps1    text eol=crlf
+
+# --- 配置文件 → LF ---
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.json   text eol=lf
+*.toml   text eol=lf
+*.xml    text eol=lf
+*.ini    text eol=lf
+*.cfg    text eol=lf
+
+# --- Markdown → LF ---
+*.md     text eol=lf
+
+# --- Git 自身文件 → LF ---
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+
+# --- 二进制文件（不做换行符转换）---
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+*.zip    binary
+*.tar.gz binary
+*.7z     binary

@@ -59,7 +59,7 @@ show_help() {
     echo "    ./deploy.sh <platform> <scope> [project_path]"
     echo ""
     echo "  Platform:"
-    echo "    codebuddy   Deploy to CodeBuddy (~/.workbuddy/skills/)"
+    echo "    codebuddy   Deploy to CodeBuddy (~/.codebuddy/skills/)"
     echo "    claude      Deploy to Claude Code (~/.claude/commands/)"
     echo ""
     echo "  Scope:"
@@ -91,7 +91,7 @@ detect_target_dir() {
         codebuddy)
             case "$SCOPE" in
                 user)
-                    TARGET_DIR="$HOME/.workbuddy/skills/slam-code-reader"
+                    TARGET_DIR="$HOME/.codebuddy/skills/slam-code-reader"
                     ;;
                 project)
                     if [[ -z "$PROJECT_PATH" ]]; then
@@ -100,7 +100,7 @@ detect_target_dir() {
                     if [[ ! -d "$PROJECT_PATH" ]]; then
                         die "Project path does not exist: $PROJECT_PATH"
                     fi
-                    TARGET_DIR="$PROJECT_PATH/.workbuddy/skills/slam-code-reader"
+                    TARGET_DIR="$PROJECT_PATH/.codebuddy/skills/slam-code-reader"
                     ;;
                 *)
                     die "Unknown scope: '$SCOPE'. Use 'user' or 'project'."

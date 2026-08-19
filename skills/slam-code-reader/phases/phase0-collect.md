@@ -26,7 +26,7 @@
 {仓库名}-code-analysis/
 ├── docs/                              # 资料实体
 │   ├── papers/
-│   │   ├── main-paper.pdf             # 主论文 PDF
+│   │   ├── {Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf  # 主论文 PDF
 │   │   └── related/                   # 关联论文
 │   ├── docs-online/                   # 在线文档缓存 (MD)
 │   └── third-party/                   # 第三方解读 (MD)
@@ -94,7 +94,7 @@
 
 | 文件类型 | 命名格式 | 示例 |
 |---------|---------|------|
-| 主论文 | `main-paper.pdf` | `main-paper.pdf` |
+| 主论文 | `{Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf` | `2018_RAL_Qin_VINS-Mono.pdf` |
 | 关联论文 | `{Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf` | `2017_TRO_Forster_On-Manifold-Preintegration.pdf` |
 | 在线文档 | `{source}_{topic}.md` | `github-wiki_installation.md` |
 | 第三方解读 | `{platform}_{author}_{topic}.md` | `zhihu_张三_VINS-Mono解析.md` |
@@ -113,7 +113,7 @@
 ```
 docs/
 ├── papers/
-│   ├── main-paper.pdf
+│   ├── 2018_RAL_Qin_VINS-Mono.pdf
 │   └── related/
 │       ├── 2017_TRO_Forster_On-Manifold-Preintegration.pdf
 │       ├── 2018_RAL_Qin_VINS-Mono.pdf
@@ -150,7 +150,7 @@ docs/
 
 | # | 论文 | 作者/来源 | 年份/会议 | 位置 | 状态 |
 |---|------|----------|---------|------|------|
-| 1 | {论文名} | {作者} | {年份} | docs/papers/main-paper.pdf | ✅/🔗/❌ |
+| 1 | {论文名} | {作者} | {年份} | docs/papers/{Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf | ✅/🔗/❌ |
 
 ## B. 关联论文（按需读）
 

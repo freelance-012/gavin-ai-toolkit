@@ -51,7 +51,7 @@ Phase 5 ──────────→ Phase 6
 ├── 00_资料清单.md              ← Phase 0
 ├── docs/                       ← Phase 0 (实体文件)
 │   ├── papers/
-│   │   ├── main-paper.pdf
+│   │   ├── {Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf  # 主论文
 │   │   └── related/        # 命名: {Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf
 │   ├── docs-online/        # 命名: {source}_{topic}.md
 │   └── third-party/        # 命名: {platform}_{author}_{topic}.md

@@ -17,7 +17,7 @@
 
 | # | 论文标题 | 作者 | 发表处 | 年份 | 文件位置 | 状态 |
 |---|---------|------|--------|------|---------|------|
-| 1 | {论文名} | {作者} | {会议/期刊} | {年份} | `docs/papers/main-paper.pdf` | ✅ 已收集 / 🔗 仅链接 / ❌ 缺失 |
+| 1 | {论文名} | {作者} | {会议/期刊} | {年份} | `docs/papers/{Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf` | ✅ 已收集 / 🔗 仅链接 / ❌ 缺失 |
 
 > **文件命名规范**: `{Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf`（详见 Phase 0 Step 3.0）
 

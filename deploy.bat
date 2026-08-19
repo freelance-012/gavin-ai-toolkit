@@ -43,10 +43,10 @@ if /i not "%PLATFORM%"=="codebuddy" if /i not "%PLATFORM%"=="claude" (
 :: --- Determine Target ---
 if /i "%PLATFORM%"=="codebuddy" (
     if /i "%SCOPE%"=="user" (
-        set "TARGET_DIR=%USERPROFILE%\.workbuddy\skills\slam-code-reader"
+        set "TARGET_DIR=%USERPROFILE%\.codebuddy\skills\slam-code-reader"
     ) else if /i "%SCOPE%"=="project" (
         call :check_project_path
-        set "TARGET_DIR=%PROJECT_PATH%\.workbuddy\skills\slam-code-reader"
+        set "TARGET_DIR=%PROJECT_PATH%\.codebuddy\skills\slam-code-reader"
     ) else (
         echo [ERROR] Unknown scope '%SCOPE%'
         exit /b 1

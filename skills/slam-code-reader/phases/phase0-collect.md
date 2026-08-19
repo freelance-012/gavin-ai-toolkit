@@ -88,15 +88,54 @@
 
 ### Step 3: 归档与下载
 
+**3.0 文件命名规范（强制）**
+
+所有下载、缓存的文件 **必须** 按以下规范统一命名，禁止使用原始文件名（如 `2103.07986.pdf`、`paper (1).pdf`）。
+
+| 文件类型 | 命名格式 | 示例 |
+|---------|---------|------|
+| 主论文 | `main-paper.pdf` | `main-paper.pdf` |
+| 关联论文 | `{Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf` | `2017_TRO_Forster_On-Manifold-Preintegration.pdf` |
+| 在线文档 | `{source}_{topic}.md` | `github-wiki_installation.md` |
+| 第三方解读 | `{platform}_{author}_{topic}.md` | `zhihu_张三_VINS-Mono解析.md` |
+
+字段规则：
+
+1. **Year** — 论文正式发表年（非 arXiv 预发布年），四位数字
+2. **Venue** — 会议/期刊缩写：`ICRA` `IROS` `RAL` `TRO` `CVPR` `ECCV` `ICCV` 等；纯 arXiv 论文用 `arXiv`
+3. **FirstAuthor** — 第一作者姓，保留原拼写（英文原样，中文用拼音首字母大写）
+4. **ShortTitle** — 论文核心关键词，用连字符 `-` 连接，不超过 3 个词
+5. **字段分隔符** — 下划线 `_`；词内分隔符 — 连字符 `-`
+6. **禁止** — 空格、特殊字符（`/ \ : * ? " < > |`）、中文标点
+
+示例目录结构：
+
+```
+docs/
+├── papers/
+│   ├── main-paper.pdf
+│   └── related/
+│       ├── 2017_TRO_Forster_On-Manifold-Preintegration.pdf
+│       ├── 2018_RAL_Qin_VINS-Mono.pdf
+│       └── 2020_arXiv_Rosinol_Kimera.pdf
+├── docs-online/
+│   ├── github-wiki_installation.md
+│   └── official-doc_config-params.md
+└── third-party/
+    ├── zhihu_张三_VINS-Mono解析.md
+    └── csdn_李四_VIO预积分推导.md
+```
+
 **3.1 可直接获取的内容**
-- 在线文档 → 缓存为 `.md` 存入 `docs/docs-online/`
-- 开放获取的论文 PDF → 下载存入 `docs/papers/` 或 `docs/papers/related/`
+- 在线文档 → 按 3.0 命名规范缓存为 `.md` 存入 `docs/docs-online/`
+- 开放获取的论文 PDF → 按 3.0 命名规范下载存入 `docs/papers/` 或 `docs/papers/related/`
 
 **3.2 需要用户补充的内容**
 生成缺失清单，明确告知：
 - 缺什么论文/文档
 - 为什么需要（对应哪个代码模块）
 - 建议从哪里获取（arXiv, IEEE, 官网等）
+- 放入后应使用的规范文件名
 
 ### Step 4: 生成 00_资料清单.md
 
@@ -158,3 +197,4 @@
 2. **尊重版权**：仅下载开放获取的论文；付费论文只提供链接和引用信息
 3. **中文优先**：如果同时存在中文和英文解读，两者都收录但中文排前面
 4. **版本匹配**：注意论文版本与代码版本的对应关系（代码可能基于论文的某个早期版本或改进版）
+5. **文件命名**：所有下载文件必须遵守 Step 3.0 的命名规范，不得使用原始下载文件名

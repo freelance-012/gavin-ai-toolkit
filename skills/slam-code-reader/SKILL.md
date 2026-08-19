@@ -51,8 +51,10 @@ Phase 5 ──────────→ Phase 6
 ├── 00_资料清单.md              ← Phase 0
 ├── docs/                       ← Phase 0 (实体文件)
 │   ├── papers/
-│   ├── docs-online/
-│   └── third-party/
+│   │   ├── main-paper.pdf
+│   │   └── related/        # 命名: {Year}_{Venue}_{FirstAuthor}_{ShortTitle}.pdf
+│   ├── docs-online/        # 命名: {source}_{topic}.md
+│   └── third-party/        # 命名: {platform}_{author}_{topic}.md
 ├── 01_拓扑结构分析.md           ← Phase 1
 ├── 02_数据流追踪.md             ← Phase 2
 ├── 03_模块优先级清单.md         ← Phase 3

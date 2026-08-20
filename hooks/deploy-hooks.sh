@@ -48,11 +48,11 @@ HOOKS_DST="${PROJECT_PATH}/${CONFIG_DIR}/hooks/session-logger"
 echo "部署 session-logger hooks 到 ${PROJECT_PATH}/${CONFIG_DIR}/hooks/"
 
 mkdir -p "$HOOKS_DST"
-cp "${HOOKS_SRC}/common.sh" "$HOOKS_DST/"
-cp "${HOOKS_SRC}/init.sh" "$HOOKS_DST/"
-cp "${HOOKS_SRC}/pre-tool.sh" "$HOOKS_DST/"
-cp "${HOOKS_SRC}/post-tool.sh" "$HOOKS_DST/"
-cp "${HOOKS_SRC}/finalize.sh" "$HOOKS_DST/"
+cat "${HOOKS_SRC}/common.sh" > "$HOOKS_DST/common.sh"
+cat "${HOOKS_SRC}/init.sh" > "$HOOKS_DST/init.sh"
+cat "${HOOKS_SRC}/pre-tool.sh" > "$HOOKS_DST/pre-tool.sh"
+cat "${HOOKS_SRC}/post-tool.sh" > "$HOOKS_DST/post-tool.sh"
+cat "${HOOKS_SRC}/finalize.sh" > "$HOOKS_DST/finalize.sh"
 
 # 设置执行权限
 chmod +x "${HOOKS_DST}/"*.sh

@@ -141,12 +141,42 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 
 ---
 
+### slam-eval-runner — 轨迹评估工具
+
+**适用范围**: 任何 SLAM/VIO 项目。按照用户定义的评估方式运行评估，生成误差时序分析，标注异常区间。
+
+**定位**: 基础能力 skill——为 debug-helper、log-analyzer、perf-optimizer 提供量化评估能力。不自创指标，完全按用户定义的评估脚本工作。
+
+**三步法工作流**:
+
+| Phase | 名称 | 说明 | 可独立执行 |
+|-------|------|------|-----------|
+| 0 | 读取配置 | 从 spec 中读取评估脚本、轨迹、真值等信息 | ✅ |
+| 1 | 运行评估 | 执行用户评估脚本，收集输出 | ✅（需 Phase 0） |
+| 2 | 时序分析 | 生成误差时序曲线，标注异常区间 | ✅（需评估数据） |
+| 3 | 生成报告 | 汇总评估结果，对比历史 | ✅（需 Phase 2） |
+
+**使用方式**:
+
+| 你说的话 / 命令 | 执行内容 |
+|-----------------|---------|
+| "跑一下评估" / "eval" | 全量执行 Phase 0-3 |
+| "评估 /path/to/traj.csv" | 用指定轨迹文件评估 |
+| "分析误差时序" | 仅 Phase 2 |
+
+**输出位置**: `{项目}/.specs/eval-results/{timestamp}/`
+
+**详细说明**: 见 [skills/slam-eval-runner/SKILL.md](skills/slam-eval-runner/SKILL.md)
+
+---
+
 ### Skill 组合使用
 
 | 用户指令 | 触发的 skill 链 |
 |---------|----------------|
 | "帮我了解这个项目" | project-profiler → 生成 spec |
 | "分析这段代码" | code-reader |
+| "跑一下评估" | eval-runner（读取 spec） |
 | "系统发散了" | debug-helper（读取 spec 后排查） |
 | 后续更多 skill 开发中... | |
 
@@ -191,6 +221,16 @@ gavin-ai-toolkit/
 │       │   └── phase3-verify.md
 │       └── templates/
 │           └── project-spec-template.md  ← project-spec.md 输出模板
+│
+│   └── slam-eval-runner/              ← 轨迹评估工具
+│       ├── SKILL.md                   ← 入口：触发词 + Phase 编排
+│       ├── phases/                    ← 4 个 Phase 的指令文件
+│       │   ├── phase0-spec.md
+│       │   ├── phase1-run.md
+│       │   ├── phase2-timeseries.md
+│       │   └── phase3-report.md
+│       └── templates/
+│           └── eval-report-template.md   ← 评估报告输出模板
 │
 ├── rules/                             ═══ Rules / System Prompts ═══
 │   ├── slam-domain-knowledge.md        ← SLAM 领域知识库

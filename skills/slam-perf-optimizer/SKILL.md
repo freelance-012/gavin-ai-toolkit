@@ -14,12 +14,21 @@ SLAM 系统性能优化编排器。自动化"构建 → 运行 → 评估 → �
 
 ## 触发词
 
+**性能优化**：
 - "自动优化"
 - "性能优化"
 - "迭代优化"
 - "optimizer"
 - "帮我优化这个系统"
 - "自动跑几轮优化"
+
+**参数调优**：
+- "参数调优"
+- "调参数"
+- "优化参数"
+- "parameter tuning"
+- "自动调参"
+- "搜索最优参数"
 
 ## 依赖
 
@@ -40,6 +49,9 @@ SLAM 系统性能优化编排器。自动化"构建 → 运行 → 评估 → �
 | max_iterations | int | ⬜ | 最大迭代次数（默认 10） |
 | target_metric | string | ⬜ | 目标指标（如 "ate_rmse < 0.1"） |
 | auto_apply | bool | ⬜ | 是否自动应用修复（默认 false，需用户确认） |
+| mode | string | ⬜ | 优化模式：`optimize`（默认，bug修复）或 `tune`（参数调优） |
+| param_strategy | string | ⬜ | 参数调优策略：`grid` / `random` / `bayesian`（默认 `bayesian`） |
+| param_budget | int | ⬜ | 参数调优的评估次数上限（默认 50） |
 
 ## 输出产物
 
@@ -129,6 +141,34 @@ Phase 3 内部循环：
 2. 从上次中断的迭代继续
 3. Phase 3-4：继续迭代优化
 
+### 模式 D：参数调优
+
+用户说："参数调优" 或 "自动调参"
+
+执行流程：
+1. Phase 0-2：初始化、构建、首次运行（baseline）
+2. Phase 3（参数调优模式）：
+   - 读取 project-spec 中的可调参数
+   - 选择调优策略（grid/random/bayesian）
+   - 迭代：
+     * 选择下一组参数
+     * 修改参数配置文件
+     * 重新运行（跳过构建，如果只改参数）
+     * 评估性能
+     * 记录结果
+     * 更新调优模型（bayesian）或继续搜索
+   - 直到达到预算或收敛
+3. Phase 4：生成调优报告（最优参数、性能曲线等）
+
+### 模式 E：混合优化
+
+用户说："混合优化" 或 "先修bug再调参"
+
+执行流程：
+1. 先执行模式 A（bug 修复）若干轮
+2. 当没有明显 bug 时，切换到模式 D（参数调优）
+3. 交替进行，直到达到目标或预算
+
 ## Phase 编排详情
 
 | Phase | 文件 | 名称 | 可独立执行 |
@@ -136,8 +176,9 @@ Phase 3 内部循环：
 | 0 | `phases/phase0-init.md` | 初始化 | ✅ |
 | 1 | `phases/phase1-build.md` | 自动构建 | ✅（需 Phase 0） |
 | 2 | `phases/phase2-run.md` | 自动运行 | ✅（需 Phase 1） |
-| 3 | `phases/phase3-optimize.md` | 迭代优化 | ✅（需 Phase 2） |
+| 3 | `phases/phase3-optimize.md` | 迭代优化（bug修复） | ✅（需 Phase 2） |
 | 4 | `phases/phase4-converge.md` | 收敛判断 | ✅（需 Phase 3） |
+| 5 | `phases/phase5-param-tune.md` | 参数调优 | ✅（需 Phase 2） |
 
 ## 输出模板
 
@@ -170,6 +211,15 @@ Phase 3 内部循环：
 - 真值文件: /path/to/groundtruth.txt
 - 评估脚本: ./scripts/evaluate.py
 - 评估命令: python {script} --traj {output}/trajectory.txt --gt {gt}
+
+## 可调参数（参数调优模式需要）
+- 参数配置文件: ./config/params.yaml
+- 关键参数:
+  - max_features: 当前=200, 范围=[100,500], 影响=精度/速度
+  - min_inliers: 当前=10, 范围=[5,20], 影响=鲁棒性
+  - ...
+- 参数依赖: max_features 增大时，min_inliers 也应适当增大
+- 参数灵敏度: max_features(高), min_inliers(中)
 ```
 
 ### 迭代日志格式

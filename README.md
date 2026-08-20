@@ -201,6 +201,39 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 
 ---
 
+### slam-log-analyzer — SLAM 日志分析工具
+
+**适用范围**: 任何 SLAM/VIO 项目。解析系统日志，建立日志与代码的映射，分析异常时间段，辅助添加调试日志。
+
+**定位**: 日志分析 skill——当需要深入理解系统运行时行为时，通过分析日志定位问题。
+
+**五步法工作流**:
+
+| Phase | 名称 | 说明 | 可独立执行 |
+|-------|------|------|-----------|
+| 0 | 日志扫描 | 扫描项目中的日志文件，识别日志格式 | ✅ |
+| 1 | 日志解析 | 解析日志，建立时间索引 | ✅（需 Phase 0） |
+| 2 | 代码映射 | 建立日志消息与源代码的映射关系 | ✅（需 Phase 1） |
+| 3 | 时段分析 | 分析指定时间段内的日志 | ✅（需 Phase 2） |
+| 4 | 插桩设计 | 设计并添加调试日志（可选） | ✅（需 Phase 2） |
+
+**使用方式**:
+
+| 你说的话 / 命令 | 执行内容 |
+|-----------------|---------|
+| "分析日志" / "log" | 全量执行 Phase 0-3 |
+| "分析 10-20 秒的日志" | Phase 0-2，然后 Phase 3 分析指定时间段 |
+| "帮我加一些调试日志" / "插桩" | Phase 0-2，然后 Phase 4 设计插桩 |
+| "分析误差突增时的日志" | 联合 eval-runner，分析异常时间段 |
+
+**输出位置**: `{项目}/.specs/log-analysis/{timestamp}/`
+
+**支持的日志格式**: ROS 日志、自定义格式、纯文本格式
+
+**详细说明**: 见 [skills/slam-log-analyzer/SKILL.md](skills/slam-log-analyzer/SKILL.md)
+
+---
+
 ### Skill 组合使用
 
 | 用户指令 | 触发的 skill 链 |
@@ -210,6 +243,8 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 | "跑一下评估" | eval-runner（读取 spec） |
 | "系统发散了" | debug-helper（读取 spec 和 eval 结果后排查） |
 | "为什么这段轨迹误差大" | eval-runner → debug-helper → 修复建议 |
+| "分析日志" / "看看这段时间发生了什么" | log-analyzer（读取 spec 和 eval 结果） |
+| "帮我加一些调试日志" | log-analyzer（Phase 4 插桩设计） |
 | 后续更多 skill 开发中... | |
 
 ---
@@ -273,6 +308,17 @@ gavin-ai-toolkit/
 │       │   └── phase3-verify.md       ← 修复方案
 │       └── templates/
 │           └── debug-report-template.md  ← 诊断报告模板
+│
+│   └── slam-log-analyzer/             ← SLAM 日志分析工具
+│       ├── SKILL.md                   ← 入口：触发词 + Phase 编排
+│       ├── phases/                    ← 5 个 Phase 的指令文件
+│       │   ├── phase0-scan.md         ← 日志扫描
+│       │   ├── phase1-parse.md        ← 日志解析
+│       │   ├── phase2-map.md          ← 代码映射
+│       │   ├── phase3-analyze.md      ← 时段分析
+│       │   └── phase4-instrument.md   ← 插桩设计
+│       └── templates/
+│           └── log-analysis-template.md  ← 分析报告模板
 │
 ├── rules/                             ═══ Rules / System Prompts ═══
 │   ├── slam-domain-knowledge.md        ← SLAM 领域知识库

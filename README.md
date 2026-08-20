@@ -370,6 +370,41 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 
 ---
 
+## 知识库（Knowledge Base）
+
+`references/` 目录下包含 SLAM/VIO 领域的理论知识库，供 Skills 和开发者参考使用。
+
+### 核心知识文档
+
+| 文档 | 内容 | 使用场景 |
+|------|------|---------|
+| [optimization-theory.md](references/optimization-theory.md) | 优化理论基础 | 分析 Hessian 矩阵、雅可比矩阵、残差分布、权重分布对精度的影响 |
+| [filtering-theory.md](references/filtering-theory.md) | 滤波理论基础 | 理解卡尔曼滤波、EKF、MSCKF、IMU 预积分等滤波方法 |
+| [formula-cheatsheet.md](references/formula-cheatsheet.md) | 常用公式速查 | 快速查阅 SLAM/VIO 中的核心数学公式 |
+| [code-patterns.md](references/code-patterns.md) | 代码模式识别 | 识别 SLAM 代码中的常见模式和最佳实践 |
+| [framework-comparison.md](references/framework-comparison.md) | 框架对比 | 对比 VINS、ORB-SLAM、OpenVINS 等主流框架的特点 |
+
+### 知识库的使用方式
+
+1. **Skills 引用**：Skills 在执行时可以引用知识库中的理论进行分析
+   - 例如：`slam-debug-helper` 在诊断优化问题时引用 `optimization-theory.md`
+   - 例如：分析滤波系统时引用 `filtering-theory.md`
+
+2. **开发者学习**：开发者可以直接阅读这些文档学习 SLAM/VIO 理论
+
+3. **AI 辅助**：AI 助手可以利用这些知识提供更专业的分析和建议
+
+### 知识库的扩展
+
+欢迎贡献更多知识文档，建议的主题：
+- 李群与李代数在 SLAM 中的应用
+- 图优化与因子图的深入理解
+- 传感器标定理论与实践
+- 多传感器融合方法
+- 深度学习在 SLAM 中的应用
+
+---
+
 ## 目录结构
 
 ```
@@ -466,7 +501,9 @@ gavin-ai-toolkit/
 ├── references/                        ═══ 参考资料 ═══
 │   ├── framework-comparison.md         ← 主流框架特征对照表
 │   ├── formula-cheatsheet.md           ← 常用公式速查
-│   └── code-patterns.md                ← SLAM 代码常见模式识别
+│   ├── code-patterns.md                ← SLAM 代码常见模式识别
+│   ├── optimization-theory.md          ← 优化理论基础（Hessian、雅可比、残差、权重）
+│   └── filtering-theory.md             ← 滤波理论基础（卡尔曼、EKF、MSCKF、预积分）
 │
 └── archives/                          ═══ 历史产出归档 ═══
     └── (按项目存放分析报告)

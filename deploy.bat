@@ -9,7 +9,7 @@ chcp 65001 >nul 2>&1
 ::  Scope:   user | project
 :: ============================================================
 
-set "SOURCE_DIR=%~dp0skills\slam-code-reader"
+set "SKILLS_DIR=%~dp0skills"
 
 set "PLATFORM=%~1"
 set "SCOPE=%~2"
@@ -43,10 +43,10 @@ if /i not "%PLATFORM%"=="codebuddy" if /i not "%PLATFORM%"=="claude" (
 :: --- Determine Target ---
 if /i "%PLATFORM%"=="codebuddy" (
     if /i "%SCOPE%"=="user" (
-        set "TARGET_DIR=%USERPROFILE%\.codebuddy\skills\slam-code-reader"
+        set "TARGET_DIR=%USERPROFILE%\.codebuddy\skills"
     ) else if /i "%SCOPE%"=="project" (
         call :check_project_path
-        set "TARGET_DIR=%PROJECT_PATH%\.codebuddy\skills\slam-code-reader"
+        set "TARGET_DIR=%PROJECT_PATH%\.codebuddy\skills"
     ) else (
         echo [ERROR] Unknown scope '%SCOPE%'
         exit /b 1
@@ -66,14 +66,8 @@ if /i "%PLATFORM%"=="codebuddy" (
 echo [INFO] Platform: %PLATFORM%
 echo [INFO] Scope: %SCOPE%
 echo [INFO] Target: %TARGET_DIR%
-echo [INFO] Source: %SOURCE_DIR%
+echo [INFO] Skills: %SKILLS_DIR%
 echo.
-
-:: --- Check Source ---
-if not exist "%SOURCE_DIR%\SKILL.md" (
-    echo [ERROR] SKILL.md not found at %SOURCE_DIR%
-    exit /b 1
-)
 
 :: --- Deploy ---
 if /i "%PLATFORM%"=="codebuddy" (
@@ -104,27 +98,34 @@ goto :eof
 ::  Sub: Deploy to CodeBuddy (Junction or Copy)
 :: ============================================================
 :deploy_codebuddy
-if exist "%TARGET_DIR%" (
-    echo [WARN] Removing old deployment...
-    rmdir /S /Q "%TARGET_DIR%"
-)
-set "PARENT=%TARGET_DIR%\.."
-if not exist "%PARENT%" mkdir "%PARENT"
+if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
 
-echo [LINK] Creating junction...
-mklink /J "%TARGET_DIR%" "%SOURCE_DIR%"
-if !ERRORLEVEL!==0 (
-    echo [OK] Deployed via junction link.
-) else (
-    echo [WARN] Junction failed, copying...
-    xcopy /E /I /Y /Q "%SOURCE_DIR%" "%TARGET_DIR%"
-    if !ERRORLEVEL!==0 (
-        echo [OK] Deployed via copy.
-    ) else (
-        echo [ERROR] Deployment failed
-        exit /b 1
+set "COUNT=0"
+for /D %%S in ("%SKILLS_DIR%\*") do (
+    if exist "%%S\SKILL.md" (
+        set "SKILL_NAME=%%~nxS"
+        set "SKILL_TARGET=%TARGET_DIR%\!SKILL_NAME!"
+        echo   Deploying: !SKILL_NAME!
+
+        if exist "!SKILL_TARGET!" rmdir /S /Q "!SKILL_TARGET!"
+
+        mklink /J "!SKILL_TARGET!" "%%S"
+        if !ERRORLEVEL!==0 (
+            echo   [OK] !SKILL_NAME! deployed via junction.
+        ) else (
+            xcopy /E /I /Y /Q "%%S" "!SKILL_TARGET!"
+            if !ERRORLEVEL!==0 (
+                echo   [OK] !SKILL_NAME! deployed via copy.
+            ) else (
+                echo   [ERROR] Failed to deploy !SKILL_NAME!
+            )
+        )
+        set /a COUNT+=1
     )
 )
+
+echo.
+echo [OK] !COUNT! skills deployed.
 goto :eof
 
 :: ============================================================
@@ -132,12 +133,26 @@ goto :eof
 :: ============================================================
 :deploy_claude
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
-copy /Y "%SOURCE_DIR%\SKILL.md" "%TARGET_DIR%\slam-code-reader.md" >nul
-echo [OK] Installed slam-code-reader.md
-for %%F in ("%SOURCE_DIR%\phases\*.md") do (
-    set "FN=%%~nF"
-    copy /Y "%%F" "%TARGET_DIR%\slam-!FN!.md" >nul 2>nul && echo [OK] Installed slam-!FN!.md
+
+set "COUNT=0"
+for /D %%S in ("%SKILLS_DIR%\*") do (
+    if exist "%%S\SKILL.md" (
+        set "SKILL_NAME=%%~nxS"
+        copy /Y "%%S\SKILL.md" "%TARGET_DIR%\!SKILL_NAME!.md" >nul
+        echo [OK] Installed !SKILL_NAME!.md
+
+        if exist "%%S\phases" (
+            for %%F in ("%%S\phases\*.md") do (
+                set "FN=%%~nF"
+                copy /Y "%%F" "%TARGET_DIR%\!SKILL_NAME!-!FN!.md" >nul 2>nul && echo [OK] Installed !SKILL_NAME!-!FN!.md
+            )
+        )
+        set /a COUNT+=1
+    )
 )
+
+echo.
+echo [OK] !COUNT! skills deployed.
 goto :eof
 
 endlocal

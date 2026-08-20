@@ -27,7 +27,7 @@ NC='\033[0m' # No Color
 
 # --- Script Location ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_DIR="${SCRIPT_DIR}/skills/slam-code-reader"
+SKILLS_DIR="${SCRIPT_DIR}/skills"
 
 # --- Helper Functions ---
 die() {
@@ -91,7 +91,7 @@ detect_target_dir() {
         codebuddy)
             case "$SCOPE" in
                 user)
-                    TARGET_DIR="$HOME/.codebuddy/skills/slam-code-reader"
+                    TARGET_DIR="$HOME/.codebuddy/skills"
                     ;;
                 project)
                     if [[ -z "$PROJECT_PATH" ]]; then
@@ -100,7 +100,7 @@ detect_target_dir() {
                     if [[ ! -d "$PROJECT_PATH" ]]; then
                         die "Project path does not exist: $PROJECT_PATH"
                     fi
-                    TARGET_DIR="$PROJECT_PATH/.codebuddy/skills/slam-code-reader"
+                    TARGET_DIR="$PROJECT_PATH/.codebuddy/skills"
                     ;;
                 *)
                     die "Unknown scope: '$SCOPE'. Use 'user' or 'project'."
@@ -136,10 +136,20 @@ detect_target_dir() {
 
 # --- Validate Source ---
 validate_source() {
-    if [[ ! -f "$SOURCE_DIR/SKILL.md" ]]; then
-        die "Source directory missing SKILL.md: $SOURCE_DIR"
+    if [[ ! -d "$SKILLS_DIR" ]]; then
+        die "Skills directory missing: $SKILLS_DIR"
     fi
-    info "Source: $SOURCE_DIR"
+    SKILL_COUNT=$(find "$SKILLS_DIR" -maxdepth 1 -mindepth 1 -type d | wc -l)
+    if [[ "$SKILL_COUNT" -eq 0 ]]; then
+        die "No skills found in: $SKILLS_DIR"
+    fi
+    info "Skills directory: $SKILLS_DIR ($SKILL_COUNT skills)"
+    for skill_dir in "$SKILLS_DIR"/*/; do
+        skill_name=$(basename "$skill_dir")
+        if [[ ! -f "$skill_dir/SKILL.md" ]]; then
+            warn "Skill '$skill_name' missing SKILL.md, skipping"
+        fi
+    done
 }
 
 # --- Deploy for CodeBuddy (symlink or copy) ---
@@ -148,29 +158,37 @@ deploy_codebuddy() {
     info "Deploy mode: CodeBuddy ($SCOPE)"
     echo "   Target: $TARGET_DIR"
 
-    # Remove old deployment if exists
-    if [[ -e "$TARGET_DIR" ]]; then
-        warn "Target exists, removing old version..."
-        rm -rf "$TARGET_DIR"
-    fi
-
     # Create parent directory
-    mkdir -p "$(dirname "$TARGET_DIR")"
+    mkdir -p "$TARGET_DIR"
 
-    # Try symbolic link first (preferred on Unix)
-    echo "[LINK] Creating symbolic link..."
-    if ln -s "$SOURCE_DIR" "$TARGET_DIR" 2>/dev/null; then
-        ok "Deployed successfully! (Symlink mode)"
-        echo ""
-        echo "   Source and target stay in sync."
-        echo "   Edit source files to update all deployments."
+    local deployed=0
+    for skill_dir in "$SKILLS_DIR"/*/; do
+        [[ ! -f "$skill_dir/SKILL.md" ]] && continue
+        skill_name=$(basename "$skill_dir")
+        local target="$TARGET_DIR/$skill_name"
+
+        echo "   Deploying: $skill_name → $target"
+
+        # Remove old deployment if exists
+        if [[ -e "$target" ]]; then
+            rm -rf "$target"
+        fi
+
+        # Try symbolic link first
+        if ln -s "$skill_dir" "$target" 2>/dev/null; then
+            ok "$skill_name deployed (symlink)"
+        else
+            cp -R "$skill_dir" "$target"
+            ok "$skill_name deployed (copy)"
+        fi
+        ((deployed++))
+    done
+
+    echo ""
+    if [[ $deployed -gt 0 ]]; then
+        ok "All $deployed skills deployed successfully!"
     else
-        # Fallback to copy
-        warn "Symlink failed, using copy mode..."
-        cp -R "$SOURCE_DIR" "$TARGET_DIR"
-        ok "Deployed successfully! (Copy mode)"
-        echo ""
-        warn "Copy mode: re-run this script after editing source files."
+        warn "No valid skills found to deploy."
     fi
 }
 
@@ -183,27 +201,38 @@ deploy_claude() {
     # Create target directory
     mkdir -p "$TARGET_DIR"
 
-    # Main command
-    MAIN_CMD="$TARGET_DIR/slam-code-reader.md"
-    cp "$SOURCE_DIR/SKILL.md" "$MAIN_CMD"
-    ok "Installed: slam-code-reader.md (main command)"
+    local deployed=0
+    for skill_dir in "$SKILLS_DIR"/*/; do
+        [[ ! -f "$skill_dir/SKILL.md" ]] && continue
+        skill_name=$(basename "$skill_dir")
 
-    # Phase sub-commands
-    for phase_file in "$SOURCE_DIR"/phases/*.md; do
-        if [[ -f "$phase_file" ]]; then
-            phase_name=$(basename "$phase_file" .md)
-            cmd_name="slam-${phase_name}"
-            cp "$phase_file" "$TARGET_DIR/${cmd_name}.md"
-            ok "Installed: ${cmd_name}.md"
+        # Main command
+        cp "$skill_dir/SKILL.md" "$TARGET_DIR/${skill_name}.md"
+        ok "Installed: ${skill_name}.md (main command)"
+
+        # Phase sub-commands
+        if [[ -d "$skill_dir/phases" ]]; then
+            for phase_file in "$skill_dir"/phases/*.md; do
+                if [[ -f "$phase_file" ]]; then
+                    phase_name=$(basename "$phase_file" .md)
+                    cmd_name="${skill_name}-${phase_name}"
+                    cp "$phase_file" "$TARGET_DIR/${cmd_name}.md"
+                    ok "Installed: ${cmd_name}.md"
+                fi
+            done
         fi
+        ((deployed++))
     done
 
     echo ""
+    ok "All $deployed skills deployed successfully!"
+    echo ""
     echo "   Usage in Claude Code:"
-    echo "   /slam-code-reader          Run full analysis"
-    echo "   /slam-phase0-collect       Collect papers/docs only"
-    echo "   /slam-phase1-topology      Scan code topology only"
-    echo "   ... (etc)"
+    for skill_dir in "$SKILLS_DIR"/*/; do
+        [[ ! -f "$skill_dir/SKILL.md" ]] && continue
+        skill_name=$(basename "$skill_dir")
+        echo "   /${skill_name}          Run ${skill_name}"
+    done
 }
 
 # --- Main ---
@@ -231,10 +260,11 @@ main() {
     echo "  Next step:"
     case "$PLATFORM" in
         codebuddy)
-            echo '    In CodeBuddy, type: "analyze D:/your-slam-project"'
+            echo '    In CodeBuddy, type: "profiler /path/to/project"'
             ;;
         claude)
-            echo '    In Claude Code, type: /slam-code-reader D:/your-slam-project'
+            echo '    In Claude Code, type: /slam-project-profiler /path/to/project'
+            echo '    Or: /slam-code-reader /path/to/project'
             ;;
     esac
     echo ""

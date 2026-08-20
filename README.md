@@ -53,10 +53,12 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 
 | Platform | Scope | 目标路径 |
 |----------|-------|---------|
-| CodeBuddy | User | `~/.workbuddy/skills/slam-code-reader/` |
-| CodeBuddy | Project | `{project}/.workbuddy/skills/slam-code-reader/` |
+| CodeBuddy | User | `~/.workbuddy/skills/{skill_name}/` |
+| CodeBuddy | Project | `{project}/.workbuddy/skills/{skill_name}/` |
 | Claude Code | User | `~/.claude/commands/` (flat .md files) |
 | Claude Code | Project | `{project}/.claude/commands/` |
+
+部署脚本自动遍历 `skills/` 下所有 skill 进行部署。
 
 ### 验证部署成功
 
@@ -109,34 +111,86 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 
 ---
 
+### slam-project-profiler — 项目画像生成工具
+
+**适用范围**: 任何 SLAM/VIO 项目。生成结构化的项目规格文件（`project-spec.md`），供其他 skill 读取使用。
+
+**定位**: 基础设施 skill——其他 skill（debug-helper、eval-runner、log-analyzer 等）执行前都需要读取 spec 文件。
+
+**四步法工作流**:
+
+| Phase | 名称 | 说明 | 可独立执行 |
+|-------|------|------|-----------|
+| 0 | 自动扫描 | 扫描项目目录、配置、README、代码结构，形成初步假设 | ✅ |
+| 1 | 交互确认 | AI 逐项提出假设，用户确认/纠正/补充 | ✅（需 Phase 0） |
+| 2 | 生成规格 | 汇总确认信息，生成 `project-spec.md` | ✅（需 Phase 0+1） |
+| 3 | 验证 | 用 spec 中的信息尝试读取样本数据，确认可解析性 | ✅（需 Phase 2） |
+
+**使用方式**:
+
+| 你说的话 / 命令 | 执行内容 |
+|-----------------|---------|
+| "了解这个项目" / "profiler" | 全量执行 Phase 0-3 |
+| "扫描项目结构" | 仅 Phase 0 |
+| "确认项目信息" | 仅 Phase 1 |
+| "更新项目规格" | 更新已有 spec 的指定章节 |
+
+**输出位置**: `{项目}/.specs/project-spec.md`
+
+**详细说明**: 见 [skills/slam-project-profiler/SKILL.md](skills/slam-project-profiler/SKILL.md)
+
+---
+
+### Skill 组合使用
+
+| 用户指令 | 触发的 skill 链 |
+|---------|----------------|
+| "帮我了解这个项目" | project-profiler → 生成 spec |
+| "分析这段代码" | code-reader |
+| "系统发散了" | debug-helper（读取 spec 后排查） |
+| 后续更多 skill 开发中... | |
+
+---
+
 ## 目录结构
 
 ```
 gavin-ai-toolkit/
 ├── README.md                          ← 本文件
+├── CLAUDE.md                          ← Claude Code 使用指南
 ├── .gitignore
 ├── deploy.bat                         ← Windows 部署脚本
-├── deploy.sh                           ← Linux/macOS 部署脚本
+├── deploy.sh                          ← Linux/macOS 部署脚本
 │
 ├── skills/                            ═══ Skills（可执行工作流）═══
-│   └── slam-code-reader/              ← SLAM 代码解读工具集
+│   ├── slam-code-reader/              ← SLAM 代码解读工具集
+│   │   ├── SKILL.md                   ← 入口：触发词 + Phase 编排
+│   │   ├── phases/                    ← 7 个 Phase 的指令文件
+│   │   │   ├── phase0-collect.md
+│   │   │   ├── phase1-topology.md
+│   │   │   ├── phase2-dataflow.md
+│   │   │   ├── phase3-priority.md
+│   │   │   ├── phase4-deep-dive.md
+│   │   │   ├── phase5-params.md
+│   │   │   └── phase6-roadmap.md
+│   │   └── templates/                 ← 输出文档模板 (7 个)
+│   │       ├── resource-list-template.md
+│   │       ├── topology-report-template.md
+│   │       ├── dataflow-report-template.md
+│   │       ├── priority-list-template.md
+│   │       ├── deep-dive-template.md      ← 核心模板: 7-section 精读文档
+│   │       ├── param-list-template.md
+│   │       └── roadmap-template.md
+│   │
+│   └── slam-project-profiler/         ← 项目画像生成工具
 │       ├── SKILL.md                   ← 入口：触发词 + Phase 编排
-│       ├── phases/                    ← 7 个 Phase 的指令文件
-│       │   ├── phase0-collect.md
-│       │   ├── phase1-topology.md
-│       │   ├── phase2-dataflow.md
-│       │   ├── phase3-priority.md
-│       │   ├── phase4-deep-dive.md
-│       │   ├── phase5-params.md
-│       │   └── phase6-roadmap.md
-│       └── templates/                 ← 输出文档模板 (7 个)
-│           ├── resource-list-template.md
-│           ├── topology-report-template.md
-│           ├── dataflow-report-template.md
-│           ├── priority-list-template.md
-│           ├── deep-dive-template.md      ← 核心模板: 7-section 精读文档
-│           ├── param-list-template.md
-│           └── roadmap-template.md
+│       ├── phases/                    ← 4 个 Phase 的指令文件
+│       │   ├── phase0-scan.md
+│       │   ├── phase1-understand.md
+│       │   ├── phase2-generate.md
+│       │   └── phase3-verify.md
+│       └── templates/
+│           └── project-spec-template.md  ← project-spec.md 输出模板
 │
 ├── rules/                             ═══ Rules / System Prompts ═══
 │   ├── slam-domain-knowledge.md        ← SLAM 领域知识库

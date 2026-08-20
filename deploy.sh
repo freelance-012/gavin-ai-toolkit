@@ -181,7 +181,7 @@ deploy_codebuddy() {
             cp -R "$skill_dir" "$target"
             ok "$skill_name deployed (copy)"
         fi
-        ((deployed++))
+        deployed=$((deployed + 1))
     done
 
     echo ""
@@ -221,7 +221,7 @@ deploy_claude() {
                 fi
             done
         fi
-        ((deployed++))
+        deployed=$((deployed + 1))
     done
 
     echo ""

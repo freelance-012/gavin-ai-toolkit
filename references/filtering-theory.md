@@ -15,6 +15,7 @@
 7. [状态增广与边缘化](#7-状态增广与边缘化)
 8. [滤波 vs 优化](#8-滤波-vs-优化)
 9. [实战应用](#9-实战应用)
+10. [滤波诊断指标与问题排查](#10-滤波诊断指标与问题排查)
 
 ---
 
@@ -1124,7 +1125,934 @@ for (auto clone : state->_clones) {
 
 ---
 
+## 10. 滤波诊断指标与问题排查
+
+滤波方法中有许多诊断指标可以帮助排查问题，类似于优化方法中的 Hessian 矩阵分析。这些指标可以检测滤波器的健康状态、一致性和性能。
+
+### 10.1 新息与 NIS (Normalized Innovation Squared)
+
+#### 理论基础
+
+**新息 (Innovation)** 是观测值与预测值的差异：
+
+$$
+\tilde{\mathbf{y}}_k = \mathbf{z}_k - h(\hat{\mathbf{x}}_{k|k-1})
+$$
+
+**新息协方差**：
+
+$$
+\mathbf{S}_k = \mathbf{H}_k \mathbf{P}_{k|k-1} \mathbf{H}_k^T + \mathbf{R}_k
+$$
+
+**NIS (归一化新息平方)**：
+
+$$
+\text{NIS}_k = \tilde{\mathbf{y}}_k^T \mathbf{S}_k^{-1} \tilde{\mathbf{y}}_k
+$$
+
+#### 统计特性
+
+如果滤波器一致（consistent），NIS 应该服从卡方分布：
+
+$$
+\text{NIS}_k \sim \chi^2(m)
+$$
+
+其中 $m$ 是观测向量的维度。
+
+#### 诊断阈值
+
+对于 $m$ 维观测，在 95% 置信水平下：
+
+| 观测维度 $m$ | $\chi^2_{0.025}$ | $\chi^2_{0.975}$ | 合理范围 |
+|-------------|------------------|------------------|---------|
+| 2 (2D视觉) | 0.0506 | 7.378 | [0.05, 7.4] |
+| 3 (3D视觉) | 0.216 | 9.348 | [0.2, 9.3] |
+| 6 (双目) | 1.237 | 14.449 | [1.2, 14.4] |
+| 15 (IMU) | 6.262 | 27.488 | [6.3, 27.5] |
+
+#### 诊断方法
+
+```python
+import numpy as np
+from scipy.stats import chi2
+
+def check_nis(innovation, S, confidence=0.95):
+    """
+    检查 NIS 是否在合理范围内
+    
+    参数:
+        innovation: 新息向量 (m,)
+        S: 新息协方差矩阵 (m, m)
+        confidence: 置信水平
+    
+    返回:
+        nis: NIS 值
+        is_consistent: 是否一致
+        threshold_low: 下界
+        threshold_high: 上界
+    """
+    m = len(innovation)
+    
+    # 计算 NIS
+    nis = innovation.T @ np.linalg.inv(S) @ innovation
+    
+    # 计算阈值
+    alpha = 1 - confidence
+    threshold_low = chi2.ppf(alpha/2, m)
+    threshold_high = chi2.ppf(1 - alpha/2, m)
+    
+    # 判断是否一致
+    is_consistent = threshold_low <= nis <= threshold_high
+    
+    return nis, is_consistent, threshold_low, threshold_high
+
+
+def analyze_nis_sequence(nis_values, m, window_size=100):
+    """
+    分析 NIS 序列的统计特性
+    
+    参数:
+        nis_values: NIS 序列
+        m: 观测维度
+        window_size: 滑动窗口大小
+    """
+    # 基本统计
+    mean_nis = np.mean(nis_values)
+    expected_mean = m  # 卡方分布的期望值
+    
+    print(f"NIS 统计:")
+    print(f"  均值: {mean_nis:.3f} (期望: {expected_mean:.3f})")
+    print(f"  标准差: {np.std(nis_values):.3f}")
+    print(f"  最大值: {np.max(nis_values):.3f}")
+    print(f"  最小值: {np.min(nis_values):.3f}")
+    
+    # 检查一致性比例
+    threshold = chi2.ppf(0.975, m)
+    consistent_ratio = np.mean(nis_values <= threshold)
+    print(f"  一致比例: {consistent_ratio*100:.1f}%")
+    
+    # 滑动窗口分析
+    if len(nis_values) >= window_size:
+        window_means = np.convolve(nis_values, np.ones(window_size)/window_size, mode='valid')
+        print(f"  滑动窗口均值 (size={window_size}):")
+        print(f"    最小: {np.min(window_means):.3f}")
+        print(f"    最大: {np.max(window_means):.3f}")
+    
+    # 诊断
+    if mean_nis > expected_mean * 2:
+        print("⚠️ NIS 均值过大，可能原因:")
+        print("  - 观测噪声参数 R 设置过小")
+        print("  - 过程噪声参数 Q 设置过小")
+        print("  - 模型不准确（线性化误差大）")
+        print("  - 存在外点")
+    elif mean_nis < expected_mean * 0.5:
+        print("⚠️ NIS 均值过小，可能原因:")
+        print("  - 观测噪声参数 R 设置过大")
+        print("  - 过程噪声参数 Q 设置过大")
+        print("  - 滤波器过于保守")
+    
+    return mean_nis
+```
+
+#### 常见问题诊断
+
+| NIS 特征 | 可能原因 | 解决方案 |
+|---------|---------|---------|
+| NIS 持续过大 | 噪声参数不准、模型错误、外点 | 调整 R/Q、检查模型、使用鲁棒方法 |
+| NIS 持续过小 | 噪声参数过大、滤波器保守 | 减小 R/Q |
+| NIS 突然跳变 | 动态物体、传感器故障 | 检测并剔除外点 |
+| NIS 周期性波动 | 系统性误差、未建模动态 | 检查系统性误差源 |
+
+---
+
+### 10.2 NEES (Normalized Estimation Error Squared)
+
+#### 理论基础
+
+当有真值（ground truth）时，可以计算 NEES：
+
+$$
+\text{NEES}_k = (\hat{\mathbf{x}}_k - \mathbf{x}_k^{gt})^T \mathbf{P}_k^{-1} (\hat{\mathbf{x}}_k - \mathbf{x}_k^{gt})
+$$
+
+其中 $\mathbf{x}_k^{gt}$ 是真值。
+
+#### 统计特性
+
+如果滤波器一致，NEES 也应该服从卡方分布：
+
+$$
+\text{NEES}_k \sim \chi^2(n)
+$$
+
+其中 $n$ 是状态向量的维度。
+
+#### 诊断方法
+
+```python
+def check_nees(state_estimate, state_truth, P, confidence=0.95):
+    """
+    检查 NEES
+    
+    参数:
+        state_estimate: 状态估计 (n,)
+        state_truth: 真值状态 (n,)
+        P: 状态协方差矩阵 (n, n)
+        confidence: 置信水平
+    
+    返回:
+        nees: NEES 值
+        is_consistent: 是否一致
+    """
+    n = len(state_estimate)
+    
+    # 计算误差
+    error = state_estimate - state_truth
+    
+    # 计算 NEES
+    nees = error.T @ np.linalg.inv(P) @ error
+    
+    # 计算阈值
+    alpha = 1 - confidence
+    threshold_low = chi2.ppf(alpha/2, n)
+    threshold_high = chi2.ppf(1 - alpha/2, n)
+    
+    # 判断是否一致
+    is_consistent = threshold_low <= nees <= threshold_high
+    
+    return nees, is_consistent, threshold_low, threshold_high
+
+
+def analyze_nees_sequence(nees_values, n):
+    """
+    分析 NEES 序列
+    
+    参数:
+        nees_values: NEES 序列
+        n: 状态维度
+    """
+    mean_nees = np.mean(nees_values)
+    expected_mean = n
+    
+    print(f"NEES 统计:")
+    print(f"  均值: {mean_nees:.3f} (期望: {expected_mean:.3f})")
+    print(f"  标准差: {np.std(nees_values):.3f}")
+    
+    # 按状态分量分析
+    # 需要将 NEES 分解到各个状态分量
+    # 这需要在计算 NEES 时记录每个分量的贡献
+    
+    # 诊断
+    if mean_nees > expected_mean * 2:
+        print("⚠️ NEES 均值过大，滤波器不一致（过于乐观）")
+        print("  可能原因: 噪声参数过小、线性化误差大、FEJ 未正确使用")
+    elif mean_nees < expected_mean * 0.5:
+        print("⚠️ NEES 均值过小，滤波器不一致（过于保守）")
+        print("  可能原因: 噪声参数过大、未充分利用观测信息")
+    
+    return mean_nees
+```
+
+#### NEES 与 NIS 的区别
+
+| 指标 | 需要真值 | 检验对象 | 应用场景 |
+|------|---------|---------|---------|
+| NIS | 不需要 | 新息的一致性 | 在线诊断 |
+| NEES | 需要 | 估计误差的一致性 | 离线评估 |
+
+---
+
+### 10.3 协方差矩阵分析
+
+#### 10.3.1 协方差矩阵的性质
+
+协方差矩阵 $\mathbf{P}$ 反映了状态估计的不确定性。
+
+**重要性质**：
+- 对称正定矩阵
+- 对角线元素：各状态分量的方差
+- 非对角线元素：状态分量之间的协方差
+- 迹（trace）：总不确定性
+- 行列式：不确定性体积
+- 特征值：主方向上的不确定性
+
+#### 10.3.2 协方差矩阵的诊断指标
+
+```python
+def analyze_covariance_matrix(P, state_names=None):
+    """
+    分析协方差矩阵的健康状况
+    
+    参数:
+        P: 协方差矩阵 (n, n)
+        state_names: 状态名称列表（可选）
+    """
+    n = P.shape[0]
+    
+    print("=" * 60)
+    print("协方差矩阵分析")
+    print("=" * 60)
+    
+    # 1. 检查正定性
+    eigenvalues = np.linalg.eigvalsh(P)
+    min_eigenvalue = np.min(eigenvalues)
+    
+    print(f"\n1. 正定性检查:")
+    if min_eigenvalue <= 0:
+        print(f"  ❌ 非正定！最小特征值: {min_eigenvalue:.2e}")
+        print("  原因: 数值误差、边缘化错误、噪声参数不当")
+    else:
+        print(f"  ✅ 正定，最小特征值: {min_eigenvalue:.2e}")
+    
+    # 2. 条件数
+    max_eigenvalue = np.max(eigenvalues)
+    condition_number = max_eigenvalue / min_eigenvalue if min_eigenvalue > 0 else np.inf
+    
+    print(f"\n2. 条件数:")
+    print(f"  条件数: {condition_number:.2e}")
+    if condition_number > 1e6:
+        print(f"  ⚠️ 条件数过大，矩阵病态")
+        print("  影响: 卡尔曼增益计算不稳定")
+        print("  解决: 添加正则化、检查边缘化实现")
+    elif condition_number > 1e4:
+        print(f"  ⚠️ 条件数较大，需要注意")
+    else:
+        print(f"  ✅ 条件数良好")
+    
+    # 3. 迹（总不确定性）
+    trace_P = np.trace(P)
+    print(f"\n3. 总不确定性 (迹):")
+    print(f"  trace(P) = {trace_P:.3e}")
+    
+    # 4. 特征值分布
+    print(f"\n4. 特征值分布:")
+    sorted_eigenvalues = np.sort(eigenvalues)[::-1]
+    print(f"  最大特征值: {sorted_eigenvalues[0]:.3e}")
+    print(f"  最小特征值: {sorted_eigenvalues[-1]:.3e}")
+    print(f"  中位数: {np.median(eigenvalues):.3e}")
+    
+    # 检查特征值分布是否合理
+    ratio = sorted_eigenvalues[0] / sorted_eigenvalues[-1]
+    if ratio > 1e6:
+        print(f"  ⚠️ 特征值分布极不均匀，某些方向不确定性过大")
+    
+    # 5. 对角线元素（各状态分量的方差）
+    print(f"\n5. 各状态分量的标准差:")
+    std_devs = np.sqrt(np.diag(P))
+    
+    if state_names is None:
+        state_names = [f"状态 {i}" for i in range(n)]
+    
+    for i, (name, std) in enumerate(zip(state_names, std_devs)):
+        print(f"  {name}: {std:.3e}")
+        
+        # 诊断异常值
+        if std > 1.0:  # 阈值根据具体问题调整
+            print(f"    ⚠️ 标准差过大，估计不确定")
+        elif std < 1e-6:
+            print(f"    ⚠️ 标准差过小，可能过于自信")
+    
+    # 6. 非对角线元素（相关性）
+    print(f"\n6. 状态相关性分析:")
+    correlation_matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            if i != j:
+                correlation_matrix[i, j] = P[i, j] / (std_devs[i] * std_devs[j])
+    
+    # 找出强相关的状态对
+    strong_correlations = []
+    for i in range(n):
+        for j in range(i+1, n):
+            if abs(correlation_matrix[i, j]) > 0.8:
+                strong_correlations.append((i, j, correlation_matrix[i, j]))
+    
+    if strong_correlations:
+        print(f"  发现 {len(strong_correlations)} 对强相关状态:")
+        for i, j, corr in strong_correlations:
+            print(f"    {state_names[i]} <-> {state_names[j]}: {corr:.3f}")
+        print("  ⚠️ 强相关可能导致数值不稳定")
+    else:
+        print(f"  ✅ 状态间相关性合理")
+    
+    print("=" * 60)
+    
+    return {
+        'min_eigenvalue': min_eigenvalue,
+        'max_eigenvalue': max_eigenvalue,
+        'condition_number': condition_number,
+        'trace': trace_P,
+        'eigenvalues': eigenvalues,
+        'std_devs': std_devs
+    }
+```
+
+#### 10.3.3 协方差矩阵的演化分析
+
+```python
+def analyze_covariance_evolution(P_sequence, dt=0.1):
+    """
+    分析协方差矩阵随时间的演化
+    
+    参数:
+        P_sequence: 协方差矩阵序列 [(n,n), (n,n), ...]
+        dt: 时间步长
+    """
+    n_steps = len(P_sequence)
+    n_states = P_sequence[0].shape[0]
+    
+    # 提取迹的序列
+    trace_sequence = [np.trace(P) for P in P_sequence]
+    
+    # 提取对角线元素的序列
+    diag_sequence = np.array([np.diag(P) for P in P_sequence])
+    
+    # 提取特征值的序列
+    eigenvalue_sequence = np.array([np.linalg.eigvalsh(P) for P in P_sequence])
+    
+    print("协方差矩阵演化分析:")
+    print(f"  时间步数: {n_steps}")
+    print(f"  总时长: {n_steps * dt:.2f}s")
+    
+    # 分析迹的变化
+    print(f"\n1. 总不确定性 (迹) 的变化:")
+    print(f"  初始: {trace_sequence[0]:.3e}")
+    print(f"  最终: {trace_sequence[-1]:.3e}")
+    print(f"  变化: {(trace_sequence[-1] - trace_sequence[0]) / trace_sequence[0] * 100:.1f}%")
+    
+    # 检查是否持续增长
+    if trace_sequence[-1] > trace_sequence[0] * 10:
+        print("  ⚠️ 不确定性持续增长，可能原因:")
+        print("    - 没有足够的观测更新")
+        print("    - 过程噪声 Q 设置过大")
+        print("    - 系统不可观测")
+    
+    # 分析各状态分量的不确定性
+    print(f"\n2. 各状态分量的不确定性演化:")
+    for i in range(n_states):
+        initial_std = np.sqrt(diag_sequence[0, i])
+        final_std = np.sqrt(diag_sequence[-1, i])
+        change = (final_std - initial_std) / initial_std * 100
+        
+        print(f"  状态 {i}: {initial_std:.3e} -> {final_std:.3e} ({change:+.1f}%)")
+        
+        if final_std > initial_std * 5:
+            print(f"    ⚠️ 不确定性显著增长，可能不可观测")
+    
+    # 分析特征值演化
+    print(f"\n3. 特征值演化:")
+    initial_eigenvalues = eigenvalue_sequence[0]
+    final_eigenvalues = eigenvalue_sequence[-1]
+    
+    print(f"  最小特征值: {initial_eigenvalues[0]:.3e} -> {final_eigenvalues[0]:.3e}")
+    print(f"  最大特征值: {initial_eigenvalues[-1]:.3e} -> {final_eigenvalues[-1]:.3e}")
+    
+    # 检查是否有特征值趋向零
+    if np.min(final_eigenvalues) < 1e-10:
+        print("  ⚠️ 有特征值趋向零，协方差矩阵可能退化")
+    
+    return trace_sequence, diag_sequence, eigenvalue_sequence
+```
+
+---
+
+### 10.4 可观测性分析
+
+#### 10.4.1 可观测性矩阵
+
+对于线性系统 $\mathbf{x}_{k+1} = \mathbf{F}_k \mathbf{x}_k + \mathbf{w}_k$，$\mathbf{z}_k = \mathbf{H}_k \mathbf{x}_k + \mathbf{v}_k$，可观测性矩阵定义为：
+
+$$
+\mathcal{O}_k = \begin{bmatrix}
+\mathbf{H}_k \\
+\mathbf{H}_{k+1} \mathbf{F}_k \\
+\mathbf{H}_{k+2} \mathbf{F}_{k+1} \mathbf{F}_k \\
+\vdots \\
+\mathbf{H}_{k+N-1} \prod_{i=0}^{N-2} \mathbf{F}_{k+i}
+\end{bmatrix}
+$$
+
+**可观测性判据**：系统可观测当且仅当 $\text{rank}(\mathcal{O}_k) = n$。
+
+#### 10.4.2 可观测性 Gramian
+
+可观测性 Gramian 矩阵：
+
+$$
+\mathbf{W}_o(k, k+N) = \sum_{i=k}^{k+N-1} \left( \prod_{j=k}^{i-1} \mathbf{F}_j \right)^T \mathbf{H}_i^T \mathbf{H}_i \left( \prod_{j=k}^{i-1} \mathbf{F}_j \right)
+$$
+
+**性质**：
+- $\mathbf{W}_o$ 正定 $\iff$ 系统可观测
+- $\mathbf{W}_o$ 的特征值反映各方向的可观测程度
+- $\text{trace}(\mathbf{W}_o)$ 反映总的可观测性
+
+#### 10.4.3 可观测性诊断
+
+```python
+def analyze_observability(F_sequence, H_sequence, window_size=10):
+    """
+    分析系统的可观测性
+    
+    参数:
+        F_sequence: 状态转移矩阵序列
+        H_sequence: 观测矩阵序列
+        window_size: 分析窗口大小
+    
+    返回:
+        observability_metrics: 可观测性指标
+    """
+    n_steps = len(F_sequence)
+    n_states = F_sequence[0].shape[0]
+    
+    print("=" * 60)
+    print("可观测性分析")
+    print("=" * 60)
+    
+    if n_steps < window_size:
+        print(f"⚠️ 数据不足，需要至少 {window_size} 步")
+        return None
+    
+    # 构建可观测性矩阵
+    O_blocks = []
+    
+    for k in range(n_steps - window_size + 1):
+        O_k = H_sequence[k]
+        F_prod = np.eye(n_states)
+        
+        for i in range(1, window_size):
+            F_prod = F_sequence[k + i - 1] @ F_prod
+            O_k = np.vstack([O_k, H_sequence[k + i] @ F_prod])
+        
+        O_blocks.append(O_k)
+    
+    # 分析可观测性矩阵
+    print(f"\n1. 可观测性矩阵分析 (窗口大小: {window_size}):")
+    
+    ranks = []
+    for k, O_k in enumerate(O_blocks):
+        rank = np.linalg.matrix_rank(O_k, tol=1e-6)
+        ranks.append(rank)
+        
+        if rank < n_states:
+            print(f"  时刻 {k}: rank = {rank}/{n_states} ⚠️ 不可观测")
+        else:
+            print(f"  时刻 {k}: rank = {rank}/{n_states} ✅")
+    
+    # 统计可观测性
+    observable_ratio = np.mean([r == n_states for r in ranks])
+    print(f"\n2. 可观测性统计:")
+    print(f"  可观测比例: {observable_ratio*100:.1f}%")
+    
+    if observable_ratio < 0.5:
+        print("  ⚠️ 系统大部分时间不可观测")
+        print("  可能原因:")
+        print("    - 运动激励不足（退化运动）")
+        print("    - 观测信息不足")
+        print("    - 系统本身存在不可观测量")
+    
+    # 分析可观测性 Gramian
+    print(f"\n3. 可观测性 Gramian 分析:")
+    
+    gramian_eigenvalues = []
+    for k, O_k in enumerate(O_blocks[:5]):  # 只分析前5个窗口
+        W_o = O_k.T @ O_k
+        eigenvalues = np.linalg.eigvalsh(W_o)
+        gramian_eigenvalues.append(eigenvalues)
+        
+        min_eig = np.min(eigenvalues)
+        max_eig = np.max(eigenvalues)
+        condition = max_eig / min_eig if min_eig > 0 else np.inf
+        
+        print(f"  窗口 {k}:")
+        print(f"    最小特征值: {min_eig:.3e}")
+        print(f"    最大特征值: {max_eig:.3e}")
+        print(f"    条件数: {condition:.3e}")
+        
+        if min_eig < 1e-6:
+            print(f"    ⚠️ 可观测性差，某些方向几乎不可观测")
+    
+    # 识别不可观测的方向
+    print(f"\n4. 不可观测方向分析:")
+    
+    if len(O_blocks) > 0:
+        # 使用 SVD 分析
+        U, S, Vh = np.linalg.svd(O_blocks[0], full_matrices=False)
+        
+        # 找出小的奇异值对应的方向
+        threshold = 1e-6
+        unobservable_directions = Vh[S < threshold]
+        
+        if len(unobservable_directions) > 0:
+            print(f"  发现 {len(unobservable_directions)} 个不可观测方向:")
+            for i, direction in enumerate(unobservable_directions):
+                print(f"    方向 {i}: {direction}")
+                # 找出最大的分量
+                max_idx = np.argmax(np.abs(direction))
+                print(f"      主要影响状态: {max_idx}")
+        else:
+            print(f"  ✅ 所有方向都可观测")
+    
+    print("=" * 60)
+    
+    return {
+        'ranks': ranks,
+        'observable_ratio': observable_ratio,
+        'gramian_eigenvalues': gramian_eigenvalues
+    }
+```
+
+#### 10.4.4 VIO 系统中的可观测性
+
+**VIO 系统的可观测性分析**：
+
+| 状态分量 | 可观测性条件 | 说明 |
+|---------|------------|------|
+| 位置 $\mathbf{p}$ | 需要平移运动 | 静止时不可观测 |
+| 速度 $\mathbf{v}$ | 需要加速度激励 | 匀速运动时不可观测 |
+| 旋转 $\mathbf{R}$ | 需要旋转运动 | 纯平移时部分不可观测 |
+| 陀螺仪 bias $\mathbf{b}_g$ | 需要旋转运动 | 静止时不可观测 |
+| 加速度计 bias $\mathbf{b}_a$ | 需要平移运动 + 重力 | 静止时只观测到重力方向 |
+| Landmark 深度 | 需要视差 | 纯旋转时不可观测 |
+
+**退化运动**：
+
+| 运动类型 | 不可观测的状态 | 原因 |
+|---------|--------------|------|
+| 静止 | 位置、速度、$\mathbf{b}_g$ | 无运动激励 |
+| 匀速直线 | $\mathbf{b}_a$（垂直于运动方向） | 无加速度激励 |
+| 纯旋转 | 位置、速度、landmark 深度 | 无视差 |
+| 平面运动 | 垂直于平面的状态 | 运动受限 |
+
+---
+
+### 10.5 卡尔曼增益分析
+
+#### 10.5.1 卡尔曼增益的物理意义
+
+$$
+\mathbf{K}_k = \mathbf{P}_{k|k-1} \mathbf{H}_k^T (\mathbf{H}_k \mathbf{P}_{k|k-1} \mathbf{H}_k^T + \mathbf{R}_k)^{-1}
+$$
+
+**卡尔曼增益的特性**：
+- $\mathbf{K} \to 0$：更相信预测（观测噪声大）
+- $\mathbf{K} \to \mathbf{P}\mathbf{H}^T\mathbf{R}^{-1}$：更相信观测（预测噪声大）
+- $\|\mathbf{K}\|$ 反映更新强度
+
+#### 10.5.2 卡尔曼增益诊断
+
+```python
+def analyze_kalman_gain(K, P, H, R, state_names=None):
+    """
+    分析卡尔曼增益
+    
+    参数:
+        K: 卡尔曼增益矩阵 (n, m)
+        P: 预测协方差 (n, n)
+        H: 观测矩阵 (m, n)
+        R: 观测噪声协方差 (m, m)
+        state_names: 状态名称列表
+    """
+    n, m = K.shape
+    
+    print("=" * 60)
+    print("卡尔曼增益分析")
+    print("=" * 60)
+    
+    # 1. 增益的范数
+    K_norm = np.linalg.norm(K, ord=2)
+    print(f"\n1. 增益范数:")
+    print(f"  ||K||_2 = {K_norm:.3e}")
+    
+    if K_norm > 1.0:
+        print(f"  ⚠️ 增益过大，可能原因:")
+        print(f"    - 观测噪声 R 设置过小")
+        print(f"    - 预测协方差 P 设置过大")
+        print(f"    - 系统过于相信观测")
+    elif K_norm < 1e-3:
+        print(f"  ⚠️ 增益过小，可能原因:")
+        print(f"    - 观测噪声 R 设置过大")
+        print(f"    - 预测协方差 P 设置过小")
+        print(f"    - 系统过于相信预测")
+    
+    # 2. 各状态的增益
+    print(f"\n2. 各状态的增益:")
+    if state_names is None:
+        state_names = [f"状态 {i}" for i in range(n)]
+    
+    K_row_norms = np.linalg.norm(K, axis=1)
+    for i, (name, norm) in enumerate(zip(state_names, K_row_norms)):
+        print(f"  {name}: {norm:.3e}")
+        
+        if norm > 1.0:
+            print(f"    ⚠️ 该状态过度依赖观测")
+        elif norm < 1e-4:
+            print(f"    ⚠️ 该状态几乎不更新")
+    
+    # 3. 增益的分布
+    print(f"\n3. 增益分布:")
+    print(f"  最大值: {np.max(np.abs(K)):.3e}")
+    print(f"  最小值: {np.min(np.abs(K)):.3e}")
+    print(f"  平均值: {np.mean(np.abs(K)):.3e}")
+    
+    # 4. 检查增益的合理性
+    # 理论上 K 应该满足: K = P H^T S^{-1}
+    S = H @ P @ H.T + R
+    K_expected = P @ H.T @ np.linalg.inv(S)
+    K_error = np.linalg.norm(K - K_expected)
+    
+    print(f"\n4. 增益计算验证:")
+    print(f"  ||K - K_expected|| = {K_error:.3e}")
+    
+    if K_error > 1e-6:
+        print(f"  ⚠️ 增益计算有误，检查实现")
+    else:
+        print(f"  ✅ 增益计算正确")
+    
+    print("=" * 60)
+    
+    return {
+        'K_norm': K_norm,
+        'K_row_norms': K_row_norms,
+        'K_error': K_error
+    }
+```
+
+#### 10.5.3 增益异常的诊断
+
+| 增益特征 | 可能原因 | 解决方案 |
+|---------|---------|---------|
+| 增益过大 | R 过小、P 过大 | 调整 R/Q、检查协方差传播 |
+| 增益过小 | R 过大、P 过小 | 调整 R/Q、检查协方差传播 |
+| 增益剧烈波动 | 观测质量不稳定 | 使用自适应滤波、检测外点 |
+| 某些状态增益为零 | 不可观测 | 检查可观测性、改进运动激励 |
+| 增益矩阵奇异 | 数值问题 | 使用正则化、改进数值稳定性 |
+
+---
+
+### 10.6 滤波器一致性检验
+
+#### 10.6.1 一致性检验方法
+
+**方法 1：NIS/NEES 检验**（见 10.1 和 10.2 节）
+
+**方法 2：自相关检验**
+
+检查新息序列是否白噪声：
+
+```python
+def check_innovation_whiteness(innovation_sequence, max_lag=10):
+    """
+    检查新息序列是否为白噪声
+    
+    参数:
+        innovation_sequence: 新息序列 [(m,), (m,), ...]
+        max_lag: 最大滞后阶数
+    """
+    innovations = np.array(innovation_sequence)
+    n_steps, m = innovations.shape
+    
+    print("=" * 60)
+    print("新息白噪声检验")
+    print("=" * 60)
+    
+    # 计算自相关函数
+    autocorrelations = []
+    
+    for lag in range(max_lag + 1):
+        if lag == 0:
+            # 零滞后：方差
+            ac = np.mean(innovations**2, axis=0)
+        else:
+            # 非零滞后：自相关
+            ac = np.mean(innovations[lag:] * innovations[:-lag], axis=0)
+        
+        autocorrelations.append(ac)
+    
+    autocorrelations = np.array(autocorrelations)
+    
+    # 分析结果
+    print(f"\n1. 自相关分析:")
+    for lag in range(max_lag + 1):
+        ac_norm = np.linalg.norm(autocorrelations[lag])
+        print(f"  滞后 {lag}: {ac_norm:.3e}")
+        
+        if lag > 0 and ac_norm > 0.1 * np.linalg.norm(autocorrelations[0]):
+            print(f"    ⚠️ 存在显著自相关，滤波器可能不一致")
+    
+    # Ljung-Box 检验
+    print(f"\n2. Ljung-Box 检验:")
+    for i in range(m):
+        Q = n_steps * (n_steps + 2) * sum(
+            autocorrelations[lag, i]**2 / (n_steps - lag)
+            for lag in range(1, max_lag + 1)
+        )
+        
+        # 临界值（chi-squared 分布）
+        critical_value = chi2.ppf(0.95, max_lag)
+        
+        print(f"  观测 {i}: Q = {Q:.3f}, 临界值 = {critical_value:.3f}")
+        
+        if Q > critical_value:
+            print(f"    ⚠️ 拒绝白噪声假设")
+        else:
+            print(f"    ✅ 符合白噪声假设")
+    
+    print("=" * 60)
+```
+
+#### 10.6.2 一致性问题的诊断
+
+| 不一致类型 | 表现 | 原因 | 解决方案 |
+|-----------|------|------|---------|
+| 过于乐观 | NIS/NEES 过大 | 噪声参数过小、线性化误差 | 增大 R/Q、使用 FEJ |
+| 过于保守 | NIS/NEES 过小 | 噪声参数过大 | 减小 R/Q |
+| 时间相关 | 自相关显著 | 未建模动态、系统性误差 | 改进模型、检查误差源 |
+| 空间相关 | 不同观测相关 | 观测噪声相关 | 使用非对角 R |
+
+---
+
+### 10.7 滤波器稳定性监控
+
+#### 10.7.1 发散检测
+
+```python
+def detect_divergence(state_sequence, P_sequence, threshold=10.0):
+    """
+    检测滤波器是否发散
+    
+    参数:
+        state_sequence: 状态估计序列
+        P_sequence: 协方差序列
+        threshold: 发散阈值
+    """
+    n_steps = len(state_sequence)
+    n_states = state_sequence[0].shape[0]
+    
+    print("=" * 60)
+    print("滤波器稳定性监控")
+    print("=" * 60)
+    
+    # 1. 检查状态跳变
+    print(f"\n1. 状态跳变检测:")
+    max_jumps = []
+    
+    for i in range(1, n_steps):
+        delta = state_sequence[i] - state_sequence[i-1]
+        delta_norm = np.linalg.norm(delta)
+        max_jumps.append(delta_norm)
+        
+        if delta_norm > threshold:
+            print(f"  时刻 {i}: 跳变 {delta_norm:.3e} ⚠️")
+            print(f"    状态变化: {delta}")
+    
+    if max_jumps:
+        avg_jump = np.mean(max_jumps)
+        print(f"  平均跳变: {avg_jump:.3e}")
+        
+        if avg_jump > threshold * 0.5:
+            print(f"  ⚠️ 状态跳变过大，滤波器可能不稳定")
+    
+    # 2. 检查协方差增长
+    print(f"\n2. 协方差增长检测:")
+    
+    trace_sequence = [np.trace(P) for P in P_sequence]
+    trace_growth = trace_sequence[-1] / trace_sequence[0]
+    
+    print(f"  初始 trace(P): {trace_sequence[0]:.3e}")
+    print(f"  最终 trace(P): {trace_sequence[-1]:.3e}")
+    print(f"  增长倍数: {trace_growth:.2f}x")
+    
+    if trace_growth > 100:
+        print(f"  ⚠️ 协方差增长过快，可能原因:")
+        print(f"    - 过程噪声 Q 设置过大")
+        print(f"    - 没有足够的观测更新")
+        print(f"    - 系统不可观测")
+    
+    # 3. 检查协方差正定性
+    print(f"\n3. 协方差正定性检测:")
+    
+    min_eigenvalues = []
+    for i, P in enumerate(P_sequence):
+        eigenvalues = np.linalg.eigvalsh(P)
+        min_eig = np.min(eigenvalues)
+        min_eigenvalues.append(min_eig)
+        
+        if min_eig <= 0:
+            print(f"  时刻 {i}: 非正定 ⚠️")
+            print(f"    最小特征值: {min_eig:.3e}")
+    
+    non_psd_ratio = np.mean([e <= 0 for e in min_eigenvalues])
+    if non_psd_ratio > 0.01:
+        print(f"  ⚠️ {non_psd_ratio*100:.1f}% 的时间协方差非正定")
+    
+    # 4. 综合诊断
+    print(f"\n4. 综合诊断:")
+    
+    issues = []
+    if max_jumps and np.mean(max_jumps) > threshold * 0.5:
+        issues.append("状态跳变过大")
+    if trace_growth > 100:
+        issues.append("协方差增长过快")
+    if non_psd_ratio > 0.01:
+        issues.append("协方差经常非正定")
+    
+    if issues:
+        print(f"  发现 {len(issues)} 个问题:")
+        for issue in issues:
+            print(f"    - {issue}")
+        print(f"\n  建议:")
+        print(f"    - 检查噪声参数设置")
+        print(f"    - 检查模型正确性")
+        print(f"    - 增加观测频率")
+        print(f"    - 使用更稳定的数值方法")
+    else:
+        print(f"  ✅ 滤波器运行稳定")
+    
+    print("=" * 60)
+    
+    return {
+        'max_jumps': max_jumps,
+        'trace_growth': trace_growth,
+        'non_psd_ratio': non_psd_ratio
+    }
+```
+
+#### 10.7.2 稳定性指标汇总
+
+| 指标 | 正常范围 | 异常阈值 | 异常原因 |
+|------|---------|---------|---------|
+| 状态跳变 | < 0.1 | > 1.0 | 模型错误、外点、噪声参数不当 |
+| 协方差增长 | < 10x | > 100x | Q 过大、无观测、不可观测 |
+| 正定性 | 100% | < 99% | 数值误差、边缘化错误 |
+| NIS 均值 | ≈ m | > 2m 或 < 0.5m | 噪声参数不当、模型错误 |
+| 自相关 | ≈ 0 | > 0.1 | 未建模动态、系统性误差 |
+
+---
+
 ## 总结
+
+滤波方法的诊断指标体系：
+
+1. **NIS/NEES**：检验滤波器一致性（类似优化中的残差分析）
+2. **协方差矩阵分析**：检验不确定性估计（类似优化中的 Hessian 分析）
+3. **可观测性分析**：检验系统是否可观测（类似优化中的条件数分析）
+4. **卡尔曼增益分析**：检验更新强度（类似优化中的步长分析）
+5. **一致性检验**：检验滤波器统计特性
+6. **稳定性监控**：检验滤波器是否发散
+
+这些指标相互补充，共同构成完整的滤波诊断体系。在实际应用中，应该：
+
+1. **在线监控**：实时监控 NIS、协方差、增益等指标
+2. **离线分析**：使用 NEES、自相关等需要真值的指标
+3. **定期诊断**：检查可观测性、一致性
+4. **异常检测**：及时发现发散、不一致等问题
+
+---
+
+*本节持续更新，欢迎补充新的诊断指标和方法。*
 
 ### 关键知识点
 

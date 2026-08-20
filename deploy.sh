@@ -206,8 +206,8 @@ deploy_claude() {
         [[ ! -f "$skill_dir/SKILL.md" ]] && continue
         skill_name=$(basename "$skill_dir")
 
-        # Main command
-        cp "$skill_dir/SKILL.md" "$TARGET_DIR/${skill_name}.md"
+        # Main command - use cat to avoid file lock issues
+        cat "$skill_dir/SKILL.md" > "$TARGET_DIR/${skill_name}.md"
         ok "Installed: ${skill_name}.md (main command)"
 
         # Phase sub-commands
@@ -216,7 +216,7 @@ deploy_claude() {
                 if [[ -f "$phase_file" ]]; then
                     phase_name=$(basename "$phase_file" .md)
                     cmd_name="${skill_name}-${phase_name}"
-                    cp "$phase_file" "$TARGET_DIR/${cmd_name}.md"
+                    cat "$phase_file" > "$TARGET_DIR/${cmd_name}.md"
                     ok "Installed: ${cmd_name}.md"
                 fi
             done

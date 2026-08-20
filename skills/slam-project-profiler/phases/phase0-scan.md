@@ -180,7 +180,122 @@ ATE, RPE, RMSE, mean error, max error, accuracy
 trajectory error, pose error, translation error, rotation error
 ```
 
-### Step 7: 生成假设清单
+### Step 7: 识别构建配置
+
+**7.1 构建系统详情**
+
+读取 `CMakeLists.txt`（或 `Makefile` / `package.xml`），提取：
+- CMake 最低版本要求
+- C++ 标准（C++11/14/17/20）
+- 编译选项（`-O2`, `-g`, `-march=native` 等）
+- 构建类型（Debug/Release/RelWithDebInfo）
+
+**7.2 构建目录**
+
+搜索常见的构建目录：
+```
+build/, bin/, lib/, .build/
+```
+
+检查是否存在已构建的文件（可执行文件、库文件）。
+
+**7.3 构建命令**
+
+从 README 或文档中提取构建命令：
+```bash
+# 常见模式
+mkdir build && cd build && cmake .. && make
+catkin build / catkin_make
+colcon build
+```
+
+**7.4 依赖检查**
+
+从 `CMakeLists.txt` 的 `find_package` 和 `package.xml` 的 `<depend>` 提取依赖：
+- 系统依赖（OpenCV, Eigen, PCL 等）
+- ROS 包依赖（如果是 ROS 项目）
+- 第三方库依赖
+
+**7.5 构建选项**
+
+从 `CMakeLists.txt` 的 `option()` 和 `set()` 提取可配置选项：
+```cmake
+option(USE_CUDA "Enable CUDA support" OFF)
+set(MAX_FEATURES 200 CACHE STRING "Maximum number of features")
+```
+
+**7.6 构建产物**
+
+从 `CMakeLists.txt` 的 `add_executable` 和 `add_library` 提取：
+- 可执行文件名称和路径
+- 库文件名称和路径
+
+### Step 8: 识别运行配置
+
+**8.1 可执行文件**
+
+从构建产物或代码中识别主可执行文件：
+- `main()` 函数所在文件
+- `add_executable` 定义的目标
+- launch 文件中的节点
+
+**8.2 运行命令**
+
+从 README、launch 文件或脚本中提取运行命令：
+```bash
+# 独立运行
+./build/slam_system --config config.yaml --dataset /path/to/data
+
+# ROS 运行
+roslaunch package_name launch_file.launch
+```
+
+**8.3 配置文件**
+
+搜索项目中的配置文件：
+```
+config/*.yaml, config/*.json, config/*.xml
+*.cfg, *.ini, *.conf
+```
+
+记录配置文件路径和用途。
+
+**8.4 命令行参数**
+
+从代码中的参数解析（`argc/argv`, `getopt`, `gflags`, `ROS parameters`）提取：
+- 参数名称
+- 参数类型
+- 默认值
+- 参数说明
+
+**8.5 环境变量**
+
+搜索代码中的环境变量使用：
+```cpp
+getenv("VAR_NAME")
+std::getenv("VAR_NAME")
+$ENV{VAR_NAME}  # CMake
+```
+
+**8.6 运行时依赖**
+
+识别运行时需要的：
+- 数据文件（相机标定、词袋模型等）
+- 动态库
+- 网络服务
+
+**8.7 性能优化设置**
+
+从配置文件或代码中提取性能相关参数：
+```
+# 常见性能参数
+num_threads, thread_pool_size
+batch_size, buffer_size
+max_iterations, convergence_threshold
+enable_optimization, use_gpu
+```
+
+### Step 9: 生成假设清单
 
 将以上所有发现整理为**待确认假设清单**，格式如下：
 
@@ -216,6 +331,21 @@ trajectory error, pose error, translation error, rotation error
 - [假设] 评估脚本: {path}
 - [假设] 运行方式: {command}
 - [假设] 关注指标: ATE RMSE / ...
+
+### 构建配置
+- [假设] 构建系统: CMake / Catkin / Colcon
+- [假设] C++ 标准: C++11 / C++14 / C++17
+- [假设] 构建目录: {path}
+- [假设] 构建命令: {command}
+- [假设] 主要依赖: OpenCV, Eigen, ...
+- [假设] 可执行文件: {path}
+
+### 运行配置
+- [假设] 可执行文件: {path}
+- [假设] 运行命令: {command}
+- [假设] 配置文件: {path}
+- [假设] 命令行参数: --config, --dataset, ...
+- [假设] 性能参数: num_threads=4, ...
 ```
 
 ## 注意事项

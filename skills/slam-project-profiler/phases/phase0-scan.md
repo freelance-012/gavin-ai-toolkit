@@ -295,7 +295,57 @@ max_iterations, convergence_threshold
 enable_optimization, use_gpu
 ```
 
-### Step 9: 生成假设清单
+### Step 9: 识别可调参数
+
+**9.1 参数配置文件**
+
+搜索项目中的配置文件：
+```
+config/*.yaml, config/*.json, config/*.xml
+*.cfg, *.ini, *.conf
+params/*.yaml, settings/*.yaml
+```
+
+读取配置文件，提取所有可配置参数。
+
+**9.2 代码中的参数定义**
+
+在源代码中搜索参数定义：
+```cpp
+// C++ 参数定义模式
+double param_name = 1.0;
+int max_features = 200;
+constexpr double THRESHOLD = 0.01;
+
+// ROS 参数
+nh.param("param_name", value, default_value);
+nh.getParam("param_name", value);
+
+// 配置类
+struct Config {
+    double param1;
+    int param2;
+};
+```
+
+**9.3 参数范围分析**
+
+从代码中提取参数的使用方式和约束：
+- 参数的物理意义
+- 参数的合理范围
+- 参数之间的依赖关系
+- 参数对性能的影响
+
+**9.4 参数文档**
+
+检查是否有参数说明文档：
+```
+docs/parameters.md
+README.md 中的参数说明
+config/README.md
+```
+
+### Step 10: 生成假设清单
 
 将以上所有发现整理为**待确认假设清单**，格式如下：
 
@@ -346,6 +396,13 @@ enable_optimization, use_gpu
 - [假设] 配置文件: {path}
 - [假设] 命令行参数: --config, --dataset, ...
 - [假设] 性能参数: num_threads=4, ...
+
+### 可调参数
+- [假设] 参数配置文件: {path}
+- [假设] 关键参数: max_features=200, min_inliers=10, ...
+- [假设] 参数范围: max_features=[100,500], ...
+- [假设] 参数依赖: {参数A} 增大时 {参数B} 也需要调整
+- [假设] 参数灵敏度: max_features(高), min_inliers(中), ...
 ```
 
 ## 注意事项

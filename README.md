@@ -234,6 +234,42 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 
 ---
 
+### slam-perf-optimizer — 性能优化编排器
+
+**适用范围**: 任何 SLAM/VIO 项目。自动化"构建 → 运行 → 评估 → 分析 → 诊断 → 修复 → 再运行"的迭代优化循环。
+
+**定位**: 编排 skill——不直接执行评估、分析、诊断，而是编排其他 skill 协同工作，实现性能优化的自动化闭环。
+
+**五步法工作流**:
+
+| Phase | 名称 | 说明 | 可独立执行 |
+|-------|------|------|-----------|
+| 0 | 初始化 | 读取配置，检查依赖，初始化优化会话 | ✅ |
+| 1 | 自动构建 | 编译项目，捕获构建错误 | ✅（需 Phase 0） |
+| 2 | 自动运行 | 运行 SLAM 系统，监控进程状态 | ✅（需 Phase 1） |
+| 3 | 迭代优化 | 评估 → 分析 → 诊断 → 修复 → 回到 Phase 1 | ✅（需 Phase 2） |
+| 4 | 收敛判断 | 检查是否达到目标，生成优化报告 | ✅（需 Phase 3） |
+
+**使用方式**:
+
+| 你说的话 / 命令 | 执行内容 |
+|-----------------|---------|
+| "自动优化" / "性能优化" | 全量执行 Phase 0-4，自动迭代优化 |
+| "跑一轮优化" | 执行一次完整的评估-分析-诊断-修复循环 |
+| "从上次结果继续优化" | 读取已有迭代日志，继续优化 |
+
+**输出位置**: `{项目}/.specs/optimization/{timestamp}/`
+
+**核心价值**:
+- 自动化编译运行，消除人工干预断点
+- 迭代优化循环，持续改进系统性能
+- 收敛判断，避免无效迭代
+- 完整优化日志，可追溯每次改动
+
+**详细说明**: 见 [skills/slam-perf-optimizer/SKILL.md](skills/slam-perf-optimizer/SKILL.md)
+
+---
+
 ### Skill 组合使用
 
 | 用户指令 | 触发的 skill 链 |
@@ -245,6 +281,7 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 | "为什么这段轨迹误差大" | eval-runner → debug-helper → 修复建议 |
 | "分析日志" / "看看这段时间发生了什么" | log-analyzer（读取 spec 和 eval 结果） |
 | "帮我加一些调试日志" | log-analyzer（Phase 4 插桩设计） |
+| "自动优化这个系统" | perf-optimizer（编排 eval-runner + log-analyzer + debug-helper） |
 | 后续更多 skill 开发中... | |
 
 ---
@@ -319,6 +356,17 @@ gavin-ai-toolkit/
 │       │   └── phase4-instrument.md   ← 插桩设计
 │       └── templates/
 │           └── log-analysis-template.md  ← 分析报告模板
+│
+│   └── slam-perf-optimizer/           ← 性能优化编排器
+│       ├── SKILL.md                   ← 入口：触发词 + Phase 编排
+│       ├── phases/                    ← 5 个 Phase 的指令文件
+│       │   ├── phase0-init.md         ← 初始化
+│       │   ├── phase1-build.md        ← 自动构建
+│       │   ├── phase2-run.md          ← 自动运行
+│       │   ├── phase3-optimize.md     ← 迭代优化
+│       │   └── phase4-converge.md     ← 收敛判断
+│       └── templates/
+│           └── optimization-report-template.md  ← 优化报告模板
 │
 ├── rules/                             ═══ Rules / System Prompts ═══
 │   ├── slam-domain-knowledge.md        ← SLAM 领域知识库

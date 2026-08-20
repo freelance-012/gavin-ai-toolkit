@@ -57,6 +57,10 @@ cp "${HOOKS_SRC}/finalize.sh" "$HOOKS_DST/"
 # 设置执行权限
 chmod +x "${HOOKS_DST}/"*.sh
 
+# 获取项目的绝对路径
+PROJECT_ABS_PATH="$(cd "$PROJECT_PATH" && pwd)"
+HOOKS_ABS_PATH="${PROJECT_ABS_PATH}/${CONFIG_DIR}/hooks/session-logger"
+
 # 生成 settings.json（如果不存在则创建，存在则更新）
 SETTINGS_FILE="${PROJECT_PATH}/${CONFIG_DIR}/settings.json"
 
@@ -65,63 +69,63 @@ if [ -f "$SETTINGS_FILE" ]; then
     echo "请手动添加 hooks 配置，或备份后重新运行此脚本"
     echo ""
     echo "需要添加的配置："
-    cat <<'EOF'
+    cat <<EOF
 {
   "hooks": {
     "SessionStart": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": ".claude/hooks/session-logger/init.sh"}]
+        "hooks": [{"type": "command", "command": "${HOOKS_ABS_PATH}/init.sh"}]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": ".claude/hooks/session-logger/pre-tool.sh"}]
+        "hooks": [{"type": "command", "command": "${HOOKS_ABS_PATH}/pre-tool.sh"}]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": ".claude/hooks/session-logger/post-tool.sh"}]
+        "hooks": [{"type": "command", "command": "${HOOKS_ABS_PATH}/post-tool.sh"}]
       }
     ],
     "SessionEnd": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": ".claude/hooks/session-logger/finalize.sh"}]
+        "hooks": [{"type": "command", "command": "${HOOKS_ABS_PATH}/finalize.sh"}]
       }
     ]
   }
 }
 EOF
 else
-    # 创建新的 settings.json
+    # 创建新的 settings.json，使用绝对路径
     cat > "$SETTINGS_FILE" <<EOF
 {
   "hooks": {
     "SessionStart": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": ".claude/hooks/session-logger/init.sh"}]
+        "hooks": [{"type": "command", "command": "${HOOKS_ABS_PATH}/init.sh"}]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": ".claude/hooks/session-logger/pre-tool.sh"}]
+        "hooks": [{"type": "command", "command": "${HOOKS_ABS_PATH}/pre-tool.sh"}]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": ".claude/hooks/session-logger/post-tool.sh"}]
+        "hooks": [{"type": "command", "command": "${HOOKS_ABS_PATH}/post-tool.sh"}]
       }
     ],
     "SessionEnd": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": ".claude/hooks/session-logger/finalize.sh"}]
+        "hooks": [{"type": "command", "command": "${HOOKS_ABS_PATH}/finalize.sh"}]
       }
     ]
   }

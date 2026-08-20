@@ -170,6 +170,37 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 
 ---
 
+### slam-debug-helper — SLAM 系统故障诊断工具
+
+**适用范围**: 任何 SLAM/VIO 项目。从症状出发，通过决策树定位根因，给出可操作的修复方案。
+
+**定位**: 诊断 skill——当 SLAM 系统出现问题时，帮助用户从现象到根因到修复。
+
+**四步法工作流**:
+
+| Phase | 名称 | 说明 | 可独立执行 |
+|-------|------|------|-----------|
+| 0 | 症状分类 | 确定故障类型（漂移/发散/丢失/初始化失败/回环失败） | ✅ |
+| 1 | 信息收集 | 读取 spec + eval 结果 + 日志 + 参数配置 | ✅（需 Phase 0） |
+| 2 | 根因诊断 | 按故障类型的决策树逐层排查 | ✅（需 Phase 1） |
+| 3 | 修复方案 | 给出可操作的修复步骤 + 验证方法 | ✅（需 Phase 2） |
+
+**使用方式**:
+
+| 你说的话 / 命令 | 执行内容 |
+|-----------------|---------|
+| "系统发散了" / "debug" | 全量执行 Phase 0-3 |
+| "轨迹漂移，帮我看看原因" | 跳过 Phase 0，直接 Phase 1-3 |
+| "我已经收集了日志，帮我分析根因" | 跳过 Phase 0-1，直接 Phase 2-3 |
+
+**输出位置**: `{项目}/.specs/debug/{timestamp}/`
+
+**支持框架**: VINS-Mono/Fusion（更多框架持续添加中）
+
+**详细说明**: 见 [skills/slam-debug-helper/SKILL.md](skills/slam-debug-helper/SKILL.md)
+
+---
+
 ### Skill 组合使用
 
 | 用户指令 | 触发的 skill 链 |
@@ -177,7 +208,8 @@ deploy.bat claude project D:\my-slam-project        # 项目级
 | "帮我了解这个项目" | project-profiler → 生成 spec |
 | "分析这段代码" | code-reader |
 | "跑一下评估" | eval-runner（读取 spec） |
-| "系统发散了" | debug-helper（读取 spec 后排查） |
+| "系统发散了" | debug-helper（读取 spec 和 eval 结果后排查） |
+| "为什么这段轨迹误差大" | eval-runner → debug-helper → 修复建议 |
 | 后续更多 skill 开发中... | |
 
 ---
@@ -232,9 +264,22 @@ gavin-ai-toolkit/
 │       └── templates/
 │           └── eval-report-template.md   ← 评估报告输出模板
 │
+│   └── slam-debug-helper/             ← SLAM 系统故障诊断工具
+│       ├── SKILL.md                   ← 入口：触发词 + Phase 编排
+│       ├── phases/                    ← 4 个 Phase 的指令文件
+│       │   ├── phase0-symptom.md      ← 症状分类
+│       │   ├── phase1-collect.md      ← 信息收集
+│       │   ├── phase2-diagnose.md     ← 根因诊断（决策树）
+│       │   └── phase3-verify.md       ← 修复方案
+│       └── templates/
+│           └── debug-report-template.md  ← 诊断报告模板
+│
 ├── rules/                             ═══ Rules / System Prompts ═══
 │   ├── slam-domain-knowledge.md        ← SLAM 领域知识库
-│   └── code-review-checklist.md        ← 代码审查检查清单
+│   ├── code-review-checklist.md        ← 代码审查检查清单
+│   ├── debug-knowledge.md              ← SLAM 故障诊断知识库
+│   └── frameworks/                     ← 框架特化知识（插件）
+│       └── vins-debug-patterns.md      ← VINS 系列故障模式
 │
 ├── agents/                            ═══ Agent 角色定义 ═══
 │   ├── slam-reviewer.md                ← SLAM 代码审查员

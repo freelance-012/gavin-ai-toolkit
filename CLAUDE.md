@@ -34,6 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | slam-code-reader | `skills/slam-code-reader/SKILL.md` | SLAM 代码解读（七步法） | `{仓库名}-code-analysis/` |
 | slam-project-profiler | `skills/slam-project-profiler/SKILL.md` | 项目画像生成（基础设施） | `{project}/.specs/project-spec.md` |
 | slam-eval-runner | `skills/slam-eval-runner/SKILL.md` | 轨迹评估（基础能力） | `{project}/.specs/eval-results/{timestamp}/` |
+| slam-debug-helper | `skills/slam-debug-helper/SKILL.md` | 故障诊断与修复 | `{project}/.specs/debug/{timestamp}/` |
 
 ### Skill 组合关系
 
@@ -43,7 +44,9 @@ slam-project-profiler → 生成 project-spec.md
 slam-code-reader      → 可选读取 spec 补充上下文
 slam-eval-runner      → 读取 spec，运行评估，产出误差时序分析
          ↓
-（后续 skill 将读取 spec 和 eval 结果：debug-helper, log-analyzer 等）
+slam-debug-helper     → 读取 spec + eval 结果，诊断根因，给出修复方案
+         ↓
+（后续 skill 将读取 spec 和 debug 结果：log-analyzer 等）
 ```
 
 ### 项目规格机制
